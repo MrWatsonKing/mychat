@@ -87,7 +87,7 @@ char* list_getname(int cfd,list* plist){
 		if(cfd == pnode->tcfd)
 			return pnode->username;
 	
-	printf("failed to get name from list where cfd=%d\n",cfd);
+//	printf("failed to get name from list where cfd=%d\n",cfd);
 	return NULL;
 }
 

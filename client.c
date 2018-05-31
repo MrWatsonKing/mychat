@@ -562,7 +562,7 @@ int pfile_send(int sfd,char* filepath,char* toname){
 	
 	int n = 0,w = 0;
 	int wsum = 0;
-	char filebuf[900] = {0};//不超过服务器接收范围
+char filebuf[900] = {0};//不超过服务器接收范围
 	while(1){
 		pthread_mutex_lock(&mutex1);
 		pthread_cond_wait(&cond,&mutex1);//经过信号量通知,才能开始发送
@@ -640,18 +640,19 @@ int pfile_recv(int sfd,char* filepath,char* fromname,char* toname){
     strcat(recvpath,myname);
     strcat(recvpath,"/");
 
-    if(access(cwd,R_OK|W_OK|X_OK) == -1){
+    if(access(recvpath,R_OK|W_OK|X_OK) == -1){
         if(mkdir(recvpath,0777) == -1){
             dprintf(sfd,"@%s [verify]: NO.\n",fromname);
             perror("mkdir error");
             return -1;
-        }
+        }else
+			printf("dir created OK:%s\n",recvpath);
     }
-    strcat(recvpath,name);
-
+	
+	chdir(recvpath);
     dprintf(sfd,"@%s [verify]: OK.\n",fromname);
 
-    FILE* precvfile = fopen(recvpath,"w");
+    FILE* precvfile = fopen(name,"w");
 	if(precvfile == NULL){
 		dprintf(sfd,"@%s [verify]: SS.\n",fromname);
 		perror("fopen error");
@@ -706,6 +707,7 @@ int pfile_recv(int sfd,char* filepath,char* fromname,char* toname){
 
 	fclose(precvfile);
 	precvfile = NULL;
+	chdir(cwd);
 	printf("file size=%d recved successful.\n\n",size);
 
 	return 0;
