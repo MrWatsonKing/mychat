@@ -1,4 +1,4 @@
-#include "server.h" ///////////////////// list.c
+#include "server.h" //list.c
 
 int list_init(list* plist){
 

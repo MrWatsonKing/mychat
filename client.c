@@ -1,4 +1,4 @@
- #include "client.h" /////////////////// client.c
+ #include "client.h" //client.c
 
 char cmd[32] = {0};
 int logstatus = 0;
@@ -367,7 +367,7 @@ void* thread_send(void* psfd){
 		t = time(NULL);
 		today = localtime(&t);
 		pthread_mutex_lock(&mutex);
-		fprintf(pfile,"%02d:%02d:%02d %s\n",today->tm_hour,today->tm_min,today->tm_sec,msg);
+        fprintf(pfile,"%02d:%02d:%02d me:%s\n",today->tm_hour,today->tm_min,today->tm_sec,msg);
 		pthread_mutex_unlock(&mutex);
 		if(!strcmp(msg,":exit\n"))
 			return (void*)0;
@@ -424,27 +424,27 @@ void* thread_recv(void* psfd){
 			pthread_cond_signal(&cond);
 		}
 		
-		if(!strstr(realmsg,"[verify]:")){//不显示[verify]:消息
+        if(!strstr(realmsg,"[verify]:")){//不显示,不打印[verify]:消息
 			//群发则不含@toname，realmsg包含\n
 			if(strlen(toname) == 1 && toname[0] == '.')
 				printf("%s:%s",fromname,realmsg);
 			else
 				printf("%s:@%s %s",fromname,toname,realmsg);
-		}
-			
-		//此时msg不包含fromname:@toname
-		if(strstr(realmsg,":file") && strstr(realmsg,"$")){
-			sscanf(realmsg,"%*[^$]$%s",filepath);
-			if(pfile_recv(sfd,filepath,fromname,toname) == -1){
-				continue;//文件接收失败的话，接收请求就不写入日志
-			}
-		}
 
-		t = time(NULL);
-		today = localtime(&t);
-		pthread_mutex_lock(&mutex);
-		fprintf(pfile,"%02d:%02d:%02d %s\n",today->tm_hour,today->tm_min,today->tm_sec,realmsg);
-		pthread_mutex_unlock(&mutex);
+            //此时msg不包含fromname:@toname 也不包含[verify]:类认证消息
+            if(strstr(realmsg,":file") && strstr(realmsg,"$")){
+                sscanf(realmsg,"%*[^$]$%s",filepath);
+                if(pfile_recv(sfd,filepath,fromname,toname) == -1){
+                    continue;//文件接收失败的话，接收请求就不写入日志
+                }
+            }
+
+            t = time(NULL);
+            today = localtime(&t);
+            pthread_mutex_lock(&mutex);
+            fprintf(pfile,"%02d:%02d:%02d %s\n",today->tm_hour,today->tm_min,today->tm_sec,msgbuf);
+            pthread_mutex_unlock(&mutex);
+        }
 	}
 
 	return (void*)-1;
@@ -460,7 +460,6 @@ int pfile_send(int sfd,char* filepath,char* toname){
 	char* name = NULL;
 	char cwd[100] = {0};
 	char tmpcwd[100] = {0};
-	char* curwd = NULL;
 	getcwd(cwd,100);
 	getcwd(tmpcwd,100);
 	int len = strlen(toname);
@@ -632,9 +631,27 @@ int pfile_recv(int sfd,char* filepath,char* fromname,char* toname){
 		return -1;
 	}	
 	
-	dprintf(sfd,"@%s [verify]: OK.\n",fromname);
 
-	FILE* precvfile = fopen(name,"w");
+    char cwd[100] = {0};
+    char recvpath[256] = {0};
+    getcwd(cwd,100);
+    strcat(recvpath,cwd);
+    strcat(recvpath,"/");
+    strcat(recvpath,myname);
+    strcat(recvpath,"/");
+
+    if(access(cwd,R_OK|W_OK|X_OK) == -1){
+        if(mkdir(recvpath,0777) == -1){
+            dprintf(sfd,"@%s [verify]: NO.\n",fromname);
+            perror("mkdir error");
+            return -1;
+        }
+    }
+    strcat(recvpath,name);
+
+    dprintf(sfd,"@%s [verify]: OK.\n",fromname);
+
+    FILE* precvfile = fopen(recvpath,"w");
 	if(precvfile == NULL){
 		dprintf(sfd,"@%s [verify]: SS.\n",fromname);
 		perror("fopen error");

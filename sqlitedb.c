@@ -1,4 +1,4 @@
-#include "server.h" /////////////////// sqlitedb.c
+#include "server.h" //sqlitedb.c
 
 int db_open(const char* dbname,sqlite3* pdb){
 	char* sql = NULL;
@@ -23,7 +23,7 @@ int db_open(const char* dbname,sqlite3* pdb){
 	}
 
 	sqlite3_close(pdb);
-	printf("table \"chaters\" has been created successfully.\n");
+//	printf("table \"chaters\" has been created successfully.\n");
 	return 0;
 }	
 
@@ -77,7 +77,7 @@ int db_insert(const char* username,const char* password,const char* dbname,sqlit
 		return -1;
 	}
 	sqlite3_close(pdb);
-	printf("%s inserted into table successfully.\n",username);
+//	printf("%s inserted into table successfully.\n",username);
 	return 0;
 }
 
@@ -100,14 +100,14 @@ int db_delete(const char* username,const char* dbname,sqlite3* pdb){
 		return -1;
 	}
 	sqlite3_close(pdb);
-	printf("%s deleted from table successfully.\n",username);
+//	printf("%s deleted from table successfully.\n",username);
 	return 0;
 }
 
-static int callback(void* data,int argc,char** argv,char** azcolname){
-	for(int i=0; i<argc; i++)
-		printf("%s=%s\n",azcolname[i],argv[i]?argv[i]:NULL);
-	printf("\n");
+//static int callback(void* data,int argc,char** argv,char** azcolname){
+//	for(int i=0; i<argc; i++)
+//		printf("%s=%s\n",azcolname[i],argv[i]?argv[i]:NULL);
+//	printf("\n");
 
-	return 0;
-}
+//	return 0;
+//}
