@@ -46,7 +46,7 @@ int pcommand(void){
 void phelp(void){
     printf("commands:\n"
            "\tlogin		set logstatus on;\n"
-           "\tlogout		set logstatus off\n"
+           "\tlogout		set logstatus off;\n"
            "\tregister	register user ID;\n"
            "\tonline		check online list;\n"
            "\ttalk		enter talkroom;\n"
