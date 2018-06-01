@@ -1,0 +1,30 @@
+21:43:36 mmz:@. hello
+
+21:44:06 mmz:@. [msg]:left talk.
+
+21:44:12 me::eixt
+
+21:44:14 me::exit
+
+21:46:30 mmz:@. hello
+
+21:46:39 mmz:@king :file $../update.txt
+
+21:51:29 me::exit
+
+22:01:21 mmz:@. hello
+
+22:01:29 mmz:@king :file $../update.txt
+
+22:02:23 me::exit
+
+22:07:02 mmz:@. hello
+
+22:07:19 mmz:@king :file $../update.txt
+
+22:07:32 mmz:@. nice
+
+22:07:38 me:haha
+
+22:10:36 me::exit
+

@@ -290,13 +290,26 @@ int ptalk(int sfd){
 	char date[32] = {0};
 	sprintf(date,"%02d%02d%02d",today->tm_year+1900,today->tm_mon+1,today->tm_mday);
 	
-	char logname[256] = {0};
-	strcpy(logname,myname);
-	strcat(logname,"_chatlog_");
-	strcat(logname,date);
-	strcat(logname,".txt");
+    char logpath[256] = {0};
+	getcwd(logpath,256);
+	strcat(logpath,"/");
+    strcat(logpath,myname);
+    strcat(logpath,"_log/");
 
-	pfile = fopen(logname,"a");
+    if(access(logpath,R_OK|W_OK|X_OK) == -1){
+        if(mkdir(logpath,0777) == -1){
+            perror("mkdir error");
+            return -1;
+        }else
+			printf("dir created OK:%s\n",logpath);
+    }
+	
+	strcpy(logpath,myname);
+	strcat(logpath,"_chatlog_");
+	strcat(logpath,date);
+	strcat(logpath,".txt");
+
+	pfile = fopen(logpath,"a");
 	if(pfile == NULL)
 		printf("failed to open chatlog.\n");
 
@@ -668,10 +681,10 @@ int pfile_recv(int sfd,char* filepath,char* fromname,char* toname){
 			printf("dir created OK:%s\n",recvpath);
     }
 	
-	chdir(recvpath);
+    strcat(recvpath,name);
     dprintf(sfd,"@%s [verify]: OK.\n",fromname);
 
-    FILE* precvfile = fopen(name,"w");
+    FILE* precvfile = fopen(recvpath,"w");
 	if(precvfile == NULL){
 		dprintf(sfd,"@%s [verify]: SS.\n",fromname);
 		perror("fopen error");
@@ -726,7 +739,6 @@ int pfile_recv(int sfd,char* filepath,char* fromname,char* toname){
 
 	fclose(precvfile);
 	precvfile = NULL;
-	chdir(cwd);
 	printf("file size=%d recved successful.\n\n",size);
 
 	return 0;
