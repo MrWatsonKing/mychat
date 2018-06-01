@@ -44,12 +44,25 @@ int pcommand(void){
 }
 
 void phelp(void){
-	printf("	login		set logstatus on;\n"
-			"	logout		set logstatus off\n"
-			"	register	register user ID;\n"
-			"	online		check online list;\n"
-			"	talk		enter talkroom;\n"
-			"	quit		quit this client.\n");
+    printf("commands:\n"
+           "\tlogin		set logstatus on;\n"
+           "\tlogout		set logstatus off\n"
+           "\tregister	register user ID;\n"
+           "\tonline		check online list;\n"
+           "\ttalk		enter talkroom;\n"
+           "\tquit		quit this client.\n\n"
+           
+           "talking:\n"
+           "\tuse format \"@<name> <msg>\" to designate a single recver,and msgs will be sent privately.\n"
+           "\tif \"@<name>\" is not designated, msgs will be broatcasted to everyone by default.\n"
+           "\tinput \":exit\" to exit chatroom, and \":online\" to check chaters online.\n\n"
+           
+           "file sharing (in chatroom):\n"
+           "\tuse format \"@<name> :file $<filepath>\" to send a file to <name>(critical) privately.\n"
+           "\tfiles should not be broadcasted, but you can share files by uploading them to server.\n"
+           "\tinput \":upload $<filepath>\" to upload a file to sever,\":download $<filename>\" to download a file from server,\n"
+           "\tand \":checkfiles\" to check files on sever.\n"
+           );
 }
 
 int psendcmd(int sfd){
@@ -329,6 +342,11 @@ void* thread_send(void* psfd){
 			continue;
 		if(!strcmp(msg,"\n"))//空白消息,只包含\n字符
 			continue;
+        if(!strcmp(msg,":online\n")){
+            dprintf(sfd,"%s",msg);
+            pcheckon(sfd);
+            continue;
+        }
 		
 		//规定群发@.之后，所有消息都带有@
 		if(msg[0] == '@'){//如果指定接收人，则修改toname为给定值;
@@ -369,6 +387,7 @@ void* thread_send(void* psfd){
 		pthread_mutex_lock(&mutex);
         fprintf(pfile,"%02d:%02d:%02d me:%s\n",today->tm_hour,today->tm_min,today->tm_sec,msg);
 		pthread_mutex_unlock(&mutex);
+        //聊天界面输入:exit回车，退出聊天界面
 		if(!strcmp(msg,":exit\n"))
 			return (void*)0;
 	}

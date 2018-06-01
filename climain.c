@@ -13,7 +13,7 @@ int main(int argc,char** argv){
 		printf("pconnect fails\n");
 		return -1;
 	}	
-	printf("successfully connected.\n");	
+	printf("successfully connected.\ncommand:help to view help list.\n");	
 
 	while(1){
 		switch(pcommand()){

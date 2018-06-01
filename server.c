@@ -166,6 +166,12 @@ int ptalk_transfer(int cfd,char* myname){
 	while((n = read(cfd,msg,1000)) > 0){
 		msg[n] = '\0';
 		//msg自带\n,尤其是文件内容,不能删掉
+        
+        if(!strcmp(msg,":online\n")){
+            pcheckon(cfd);
+            continue;
+        }
+        
 		if(!strcmp(msg,"@. :exit\n")){
 			char exitmsg[100] = {0};
 			sprintf(exitmsg,"@. [msg]:left talk.\n");
