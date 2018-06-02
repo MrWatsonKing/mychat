@@ -14,10 +14,8 @@
 #include <sqlite3.h>
 #include <time.h>
 #include <fcntl.h>
-enum{LOGIN = 1,LOGOUT,REGISTER,CHECKON,TALK,SENDFILE,RECVFILE,QUIT,UNKNOWN,HELP};
 typedef struct sockaddr_in SA4;
 typedef struct sockaddr SA;
-int pcommand(void);
 void phelp(void);
 int psendcmd(int sfd);
 int plogin(int sfd);

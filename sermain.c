@@ -1,4 +1,4 @@
-#include "server.h"////////////////// servermain.c
+#include "server.h"//servermain.c
 
 list users;
 sqlite3* pdb;
@@ -28,7 +28,7 @@ int main(int argc,char** argv){
 	}
 
 	while(1){
-		char IP[32] = {0};
+		//char IP[32] = {0};
 		int cfd = accept(sfd,(SA*)&client,&clilen);
 		if(cfd == -1){
 			perror("accept");

@@ -19,53 +19,29 @@ void* pnewthread(void* pcfd){
 	int cfd = *(int*)pcfd;
 		
 	while(1){
-		switch(pcommand(cfd)){
-			case LOGIN:
-				plogin(cfd,&myname);
-				break;
-			case REGISTER:
-				pregister(cfd);
-				break;
-			case CHECKON:
-				pcheckon(cfd);
-				break;
-			case TALK:
-				ptalk_transfer(cfd,myname);
-				break;
-			case QUIT:
-				pquit(cfd);
-				break;
-			default:
-				break;	
-		}
+        //get commands:
+        char cmd[32] = {0};
+        ssize_t n = 0;
+        if((n = read(cfd,cmd,32)) < 0){
+            perror("read error");
+            pquit(cfd);//如果读不到command,就会发出退出命令
+        }
+        cmd[n] = '\0';
+        
+        //execute commands:
+        if(!strcmp(cmd,"login\n"))
+            plogin(cfd,&myname);
+        else if(!strcmp(cmd,"register\n"))
+            pregister(cfd);
+        else if(!strcmp(cmd,"online\n"))
+            pcheckon(cfd);
+        else if(!strcmp(cmd,"talk\n"))
+            ptalk_transfer(cfd,myname);
+        else if(!strcmp(cmd,"quit\n"))
+            pquit(cfd);
+        
 	}
 	return (void*)0;	
-}
-
-int pcommand(int cfd){
-	
-	char cmd[32] = {0};
-	int n = 0;
-	if((n = read(cfd,cmd,32)) < 0){
-		perror("read error");
-		return QUIT;//如果读不到command,就会发出退出命令
-	}
-	cmd[n] = '\0';
-
-    if(!strcmp(cmd,"login\n"))
-        return LOGIN;
-    else if(!strcmp(cmd,"register\n"))
-        return REGISTER;
-    else if(!strcmp(cmd,"online\n"))
-        return CHECKON;
-    else if(!strcmp(cmd,"talk\n"))
-        return TALK;
-    else if(!strcmp(cmd,"sendfile\n"))
-        return SENDFILE;
-    else if(!strcmp(cmd,"quit\n"))
-	        return QUIT;
-		
-	return QUIT;
 }
 
 int plogin(int cfd,char** pmyname){
@@ -73,7 +49,7 @@ int plogin(int cfd,char** pmyname){
 	char buf[100] = {0};
 	char username[32] = {0},password[32] = {0};
 
-	int n = 0;
+	ssize_t n = 0;
 	if((n = read(cfd,buf,100)) < 0){
 		printf("failed to read login message from client.\n");
 		return -1;
@@ -106,7 +82,7 @@ int pregister(int cfd){
 	char buf[100] = {0};
 	char username[32] = {0},password[32] = {0};
 
-	int n = 0;
+	ssize_t n = 0;
 	if((n = read(cfd,buf,100)) < 0){
 		printf("failed to read register message from client.\n");
 		return -1;
@@ -161,7 +137,7 @@ int ptalk_transfer(int cfd,char* myname){
 	char toname[32] = {0};
 	list_append(myname,cfd,&users);
 
-	int n = 0;
+	ssize_t n = 0;
 	int len = 0;
 	while((n = read(cfd,msg,1000)) > 0){
 		msg[n] = '\0';
@@ -183,7 +159,7 @@ int ptalk_transfer(int cfd,char* myname){
 		//所有消息格式都为@toname realmsg\n
 		//组织成新的格式为fromname:@toname realmsg\n
 		sscanf(msg,"@%s ",toname);
-		len = strlen(toname);
+		len = (int)strlen(toname);
 
 		if(len == 1 && toname[0]=='.')//群发
 			pgroupmsg(cfd,myname,msg);//包含@toname
@@ -207,7 +183,6 @@ void pgroupmsg(int mycfd,char* myname,char* msg){
 	int* cfdarr = NULL;
 	char toname[32] = {0};
 	sscanf(msg,"@%s ",toname);
-	int len = strlen(toname);
 
 	//该函数会调用malloc 所以用完之后 一定要free
 	list_getcfdarr(&cfdarr,&clients,&users);

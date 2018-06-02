@@ -1,4 +1,4 @@
-/////////////////////// server.h
+//server.h
 
 #ifndef _SERVER_H
 #define _SERVER_H
@@ -11,9 +11,8 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 #include <sqlite3.h>
-enum{LOGIN = 1,REGISTER,CHECKON,TALK,SENDFILE,QUIT};
-enum{SQL_ERROR = -1,SQL_NONE,SQL_FOUND};
 
+enum{SQL_ERROR = -1,SQL_NONE,SQL_FOUND};
 typedef struct sockaddr_in SA4;
 typedef struct sockaddr SA;
 
@@ -32,7 +31,6 @@ typedef struct list{
 
 void* pexit(void*);
 void* pnewthread(void* pcfd);
-int pcommand(int cfd);
 int plogin(int cfd,char** pmyname);
 int pregister(int cfd);
 int pcheckon(int cfd);
@@ -55,6 +53,6 @@ int db_open(const char* dbname,sqlite3* pdb);
 int db_check(const char* username,const char* password,const char* dbname,sqlite3* pdb);
 int db_insert(const char* username,const char* password,const char* dbname,sqlite3* pdb);
 int db_delete(const char* username,const char* dbname,sqlite3* pdb);
-static int callback(void* data,int argc,char** argv,char** azcolname);
+//static int callback(void* data,int argc,char** argv,char** azcolname);
 
 #endif//_SERVER_H

@@ -1,7 +1,7 @@
  #include "client.h" //client.c
 
-char cmd[32] = {0};
-int logstatus = 0;
+extern char cmd[32];
+extern int logstatus;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutex1 = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
@@ -9,41 +9,8 @@ int ncond = 0;
 FILE* pfile = NULL;
 char myname[32] = {0};
 
-int pcommand(void){
-
-	while(1){
-		printf("\ncommand:");
-		fflush(stdin);
-		fgets(cmd,20,stdin);//包含'\n'
-		if(strchr(cmd,' ')){
-			printf("space is not permitted in command.\n");
-			continue;
-		}
-		if(strlen(cmd) == 0){
-			printf("command can't be null.\n");
-			continue;
-		}
-		break;
-	}
-	if(!strcmp(cmd,"help\n"))
-		return HELP;
-	else if(!strcmp(cmd,"login\n"))
-		return LOGIN;
-	else if(!strcmp(cmd,"logout\n"))
-		return LOGOUT;
-	else if(!strcmp(cmd,"register\n"))
-		return REGISTER;
-	else if(!strcmp(cmd,"online\n"))
-		return CHECKON;
-	else if(!strcmp(cmd,"talk\n"))
-		return TALK;
-	else if(!strcmp(cmd,"quit\n"))
-		return QUIT;
-	else 
-		return UNKNOWN;
-}
-
 void phelp(void){
+
     printf("commands:\n"
            "\tlogin		set logstatus on;\n"
            "\tlogout		set logstatus off;\n"
@@ -82,6 +49,7 @@ int psendcmd(int sfd){
 //plogout将logstatus重新置为0。
 
 void plogout(void){
+
 	if(logstatus == 1)
 		logstatus = 0;
 		
@@ -89,14 +57,6 @@ void plogout(void){
 }
 
 int plogin(int sfd){
-
-	if(logstatus == 1){
-		printf("can not relogin, please retry.\n");
-		return -1;
-	}
-	
-	if(psendcmd(sfd) == -1)
-		return -1;
 
 	char buf[100] = {0};
 	char username[32],password[32];
@@ -148,14 +108,7 @@ int plogin(int sfd){
 	return 0;
 }
 
-int pregister(int sfd){
-	if(logstatus == 1){
-		printf("please logout first!.\n");
-		return -1;
-	}
-
-	if(psendcmd(sfd) == -1)
-		return -1;
+int pregister(int sfd){	
 
 	char buf[100] = {0};
 	char username[32],password[32];
@@ -226,14 +179,7 @@ int pregister(int sfd){
 
 int pcheckon(int sfd){
 
-	if(logstatus == 0){
-		printf("please login first!\n");
-		return -1;
-	}
-	if(psendcmd(sfd) == -1)
-		return -1;
-	
-	int cnt = 0;
+    int cnt = 0;
 	char buf[16] = {0};
 	int n = 0;
 	if((n = read(sfd,buf,16)) <= 0)
@@ -266,14 +212,7 @@ int pcheckon(int sfd){
 
 int ptalk(int sfd){
 
-	if(logstatus == 0){
-		printf("please login first!\n");
-		return -1;
-	}
-	if(psendcmd(sfd) == -1)
-		return -1;
-
-	char reply[128] = {0};
+    char reply[128] = {0};
 	int r = 0;
 	if((r = read(sfd,reply,128)) < 0){
 		printf("failed to get reply from server!\n");
@@ -336,8 +275,8 @@ int ptalk(int sfd){
 	return 0;
 }
 
-void* thread_send(void* psfd){
-	
+void* thread_send(void* psfd){	
+
 	time_t t = 0;
 	struct tm *today = NULL;
 	int sfd = *(int*)psfd;
@@ -406,8 +345,8 @@ void* thread_send(void* psfd){
 	}
 }
 
-void* thread_recv(void* psfd){
-	
+void* thread_recv(void* psfd){	
+
 	time_t t = 0;
 	struct tm *today = NULL;
 	int sfd = *(int*)psfd;
@@ -626,6 +565,7 @@ int pfile_send(int sfd,char* filepath,char* toname){
 }
 
 int pfile_recv(int sfd,char* filepath,char* fromname,char* toname){
+
 	char* filename = NULL;
 	if(strstr(filepath,"/"))
 		filename = 1 + strrchr(filepath,'/');
@@ -658,8 +598,7 @@ int pfile_recv(int sfd,char* filepath,char* fromname,char* toname){
 		dprintf(sfd,"@%s [verify]: NO.\n",fromname);
 		printf("filesize=0,failed to create file.\n\n");
 		return -1;
-	}	
-	
+	}		
 
     char cwd[100] = {0};
     char recvpath[256] = {0};
@@ -741,8 +680,8 @@ int pfile_recv(int sfd,char* filepath,char* fromname,char* toname){
 	return 0;
 }
 
-int pquit(int sfd){
-	
+int pquit(int sfd){	
+
 	psendcmd(sfd);
 	exit(0);
 }
@@ -753,9 +692,7 @@ int punknown(void){
 	return 0;
 }
 
-
 int pconnect(char* ip){
-
 	SA4 serv;
 	serv.sin_family = AF_INET;
 	serv.sin_port = htons(8080);
