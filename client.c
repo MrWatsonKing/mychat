@@ -304,7 +304,7 @@ int ptalk(int sfd){
 			printf("dir created OK:%s\n",logpath);
     }
 	
-	strcpy(logpath,myname);
+	strcat(logpath,myname);
 	strcat(logpath,"_chatlog_");
 	strcat(logpath,date);
 	strcat(logpath,".txt");
@@ -398,7 +398,7 @@ void* thread_send(void* psfd){
 		t = time(NULL);
 		today = localtime(&t);
 		pthread_mutex_lock(&mutex);
-        fprintf(pfile,"%02d:%02d:%02d me:%s\n",today->tm_hour,today->tm_min,today->tm_sec,msg);
+        fprintf(pfile,"%02d:%02d:%02d me:%s",today->tm_hour,today->tm_min,today->tm_sec,msg);
 		pthread_mutex_unlock(&mutex);
         //聊天界面输入:exit回车，退出聊天界面
 		if(!strcmp(msg,":exit\n"))
@@ -420,7 +420,7 @@ void* thread_recv(void* psfd){
 	int lento = 0;
 
 	int n = 0;	
-	while(1){//服务器转发不再对字符串进行任何处理,如果原来包含\n,那么现在仍然有\n
+	while(1){
 		if((n = read(sfd,msgbuf,1000)) <= 0){//若服务器退出，则退出
 			perror("read");
 			return (void*)-1;
@@ -474,7 +474,7 @@ void* thread_recv(void* psfd){
             t = time(NULL);
             today = localtime(&t);
             pthread_mutex_lock(&mutex);
-            fprintf(pfile,"%02d:%02d:%02d %s\n",today->tm_hour,today->tm_min,today->tm_sec,msgbuf);
+            fprintf(pfile,"%02d:%02d:%02d %s",today->tm_hour,today->tm_min,today->tm_sec,msgbuf);
             pthread_mutex_unlock(&mutex);
         }
 	}
@@ -505,7 +505,7 @@ int pfile_send(int sfd,char* filepath,char* toname){
 		filename = filepath;
 		strcpy(childpath,cwd);
 	}
-	printf("path=%s name=%s\n",childpath,name);
+	printf("path=%s name=%s\n",childpath,filename);
 
 	//解析真实路径
 	//1 ~ home目录起头
