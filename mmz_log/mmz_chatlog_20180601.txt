@@ -1,8 +1,0 @@
-22:52:18 me::exit
-
-22:53:21 me:hello
-
-22:59:06 king:@. [msg]:left talk.
-
-22:59:22 me::exit
-
