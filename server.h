@@ -29,6 +29,12 @@ typedef struct list{
 	node tail;
 }list;
 
+typedef struct cfd_tid{
+	int cfd;
+	pthread_t tid;
+	int status;
+}ctd;
+
 void* pexit(void*);
 void* pnewthread(void* pcfd);
 int plogin(int cfd,char** pmyname);

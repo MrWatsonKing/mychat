@@ -12,12 +12,12 @@ char myname[32] = {0};
 void phelp(void){
 
     printf("commands:\n"
-           "\tlogin		set logstatus on;\n"
-           "\tlogout		set logstatus off;\n"
-           "\tregister	register user ID;\n"
-           "\tonline		check online list;\n"
-           "\ttalk		enter talkroom;\n"
-           "\tquit		quit this client.\n\n"
+           "\tlogin\t\tset logstatus on;\n"
+           "\tlogout\t\tset logstatus off;\n"
+           "\tregister\tregister user ID;\n"
+           "\tonline\t\tcheck online list;\n"
+           "\ttalk\t\tenter talkroom;\n"
+           "\tquit\t\tquit this client.\n\n"
            
            "talking:\n"
            "\tuse format \"@<name> <msg>\" to designate a single recver,and msgs will be sent privately.\n"
@@ -28,8 +28,8 @@ void phelp(void){
            "\tuse format \"@<name> :file $<filepath>\" to send a file to <name>(critical) privately.\n"
            "\tfiles should not be broadcasted, but you can share files by uploading them to server.\n"
            "\tinput \":upload $<filepath>\" to upload a file to server,\":download $<filename>\" to download a file from server,\n"
-           "\tand \":checkfiles\" to check files on server.\n"
-           );
+           "\tand \":checkfiles\" to check files on server.\n\n"
+           );  
 }
 
 int psendcmd(int sfd){
@@ -53,7 +53,7 @@ void plogout(void){
 	if(logstatus == 1)
 		logstatus = 0;
 		
-	printf("logstatus off!\n");
+    printf("logstatus off!\n\n");
 }
 
 int plogin(int sfd){
@@ -94,16 +94,16 @@ int plogin(int sfd){
 	
 	int n = 0;
 	if((n = read(sfd,buf,100)) < 0 ){
-		printf("failed to read login reply from server.\n");
+        printf("failed to read login reply from server.\n\n");
 		return -1;
 	}
 	buf[n] = '\0';
 
 	if(strstr(buf,"successful")){
 		logstatus = 1;
-		printf("logstatus on!\n");
+        printf("logstatus on!\n\n");
 	}else
-		printf("%s",buf);
+        printf("%s\n",buf);
 
 	return 0;
 }
@@ -157,7 +157,7 @@ int pregister(int sfd){
 	}
 	
 	if(strcmp(password,tmppass)){
-		printf("password inputs differ,pleaes re_register.\n");
+        printf("password inputs differ,pleaes re_register.\n\n");
 		dprintf(sfd,"register failed\n");
 		return -1;
 	}
@@ -168,11 +168,11 @@ int pregister(int sfd){
 
 	int n = 0;
 	if((n = read(sfd,buf,100)) < 0 ){
-		printf("failed to read register reply from server.\n");
+        printf("failed to read register reply from server.\n\n");
 		return -1;
 	}
 	buf[n] = '\0';
-	printf("%s",buf);
+    printf("%s\n",buf);
 	
 	return 0;
 }
@@ -180,33 +180,26 @@ int pregister(int sfd){
 int pcheckon(int sfd){
 
     int cnt = 0;
-	char buf[16] = {0};
-	int n = 0;
-	if((n = read(sfd,buf,16)) <= 0)
-		printf("failed to get size of userlist.\n");
-	buf[n] = '\0';
-	sscanf(buf,"%d\n",&cnt);
-	printf("members online: %d\n",cnt);
-	if(cnt == 0) return 0;
-	
-	char* userlist = (char*)malloc(32*cnt+100);//彻底杜绝内存不够?32不是已经够了吗
-	if(userlist == NULL){
-		printf("mem error:failed to malloc mem for userlist.\n");
-		return -1;
-	}
-	userlist[0] = '\0';
-	//printf("malloc done. starting reading userlist.\n");
-	//为什么服务器发送成功了,但是read()函数经常不返回?
-	if((n = read(sfd,userlist,32*cnt+100)) <= 0){
-		printf("failed to get userlist from server.\n");
-		return -1;
-	}
-	userlist[n] = '\0';//如果内存不足的话,有可能设置字符串结尾\0失败
-	//字符串\0结尾设置不成功的话,就会无法正常输出
-	printf("%s\n",strtok(userlist,"\n"));//接收到的userlist自带\n
-	free(userlist);
-	userlist = NULL;
-		
+    char msgbuf[1000] = {0};
+
+    ssize_t n = 0;
+    if((n = read(sfd,msgbuf,1000)) <= 0)
+        printf("failed to get size of userlist.\n");
+    msgbuf[n] = '\0';
+    printf("%s",msgbuf+10);
+
+    sscanf(msgbuf,"server:@. members online: %d\n",&cnt);
+
+    while(1){
+        if((n = read(sfd,msgbuf,1000)) <= 0)
+            printf("failed to get size of userlist.\n");
+        msgbuf[n] = '\0';
+        printf("%s",msgbuf+10);
+        if(strstr(msgbuf,"["))
+            break;
+    }
+
+    printf("\n");
 	return cnt;
 }
 
@@ -215,12 +208,12 @@ int ptalk(int sfd){
     char reply[128] = {0};
 	int r = 0;
 	if((r = read(sfd,reply,128)) < 0){
-		printf("failed to get reply from server!\n");
+        printf("failed to get reply from server!\n\n");
 		return -1;
 	}
 	reply[r] = '\0';
 	if(!strstr(reply,"successful")){
-		printf("%s\n",reply);
+        printf("%s\n",reply);
 		return -1;
 	}
 	
@@ -238,6 +231,7 @@ int ptalk(int sfd){
     if(access(logpath,R_OK|W_OK|X_OK) == -1){
         if(mkdir(logpath,0777) == -1){
             perror("mkdir error");
+            printf("\n");
             return -1;
         }else
 			printf("dir created OK:%s\n",logpath);
@@ -256,12 +250,12 @@ int ptalk(int sfd){
 	pthread_t tid1,tid2;
     if(pthread_create(&tid1,0,thread_send,(void*)&sfd) != 0){
 		dprintf(sfd,":exit\n");
-	    printf("error: failed to create thread_send.\n");
+        printf("error: failed to create thread_send.\n\n");
 	    return -1;
 	}
     if(pthread_create(&tid2,0,thread_recv,(void*)&sfd) != 0){
 		dprintf(sfd,":exit\n");
-        printf("error : failed to create thread_recv.\n");
+        printf("error : failed to create thread_recv.\n\n");
         return -1;
 	}
 	
@@ -271,7 +265,8 @@ int ptalk(int sfd){
 	}
 
 	fclose(pfile);
-	pfile = NULL;
+	pfile = NULL;    
+    printf("\n");
 	return 0;
 }
 
@@ -281,6 +276,7 @@ void* thread_send(void* psfd){
 	struct tm *today = NULL;
 	int sfd = *(int*)psfd;
 	char msg[1000] = {0};
+	char tmpmsg[1000] = {0};
 	char filepath[100] = {0};
 	char toname[32] = {0};
 	char atme[32] = {0};
@@ -296,13 +292,12 @@ void* thread_send(void* psfd){
 			continue;
         if(!strcmp(msg,":online\n")){
             dprintf(sfd,"%s",msg);
-            pcheckon(sfd);
             continue;
         }
 		
 		//规定群发@.之后，所有消息都带有@
 		if(msg[0] == '@'){//如果指定接收人，则修改toname为给定值;
-			
+			//发送文件
 			if(strstr(msg,":file")){
 				sscanf(msg,"@%s",toname);
 				if(strlen(toname) == 1 && toname[0] == '.'){
@@ -323,10 +318,15 @@ void* thread_send(void* psfd){
 				pthread_mutex_unlock(&mutex1);
 				if(ncond != 1) continue;
 				if(pfile_send(sfd,filepath,toname) == -1) continue;
-				ncond = 0;
-			}else
+				ncond = 0;	
+			//发送普通消息		
+			}else{
+				if(sscanf(msg,"%*s %s\n",tmpmsg) == 0) 
+					continue; 
 				dprintf(sfd,"%s",msg);//msg 包含@toname 和\n
-		}else{//群发,补加@.
+			}
+		//群发,补加@.
+		}else{
 			if(strstr(msg,":file")){//不允许进行文件群发
 				printf("@toname should be designated.\n");
 				continue;
@@ -352,62 +352,50 @@ void* thread_recv(void* psfd){
 	int sfd = *(int*)psfd;
 	char msgbuf[1000] = {0};
 	char realmsg[1000] = {0};
-	char filepath[100] = {0};
+    char filepath[256] = {0};
 	char fromname[32] = {0};
 	char toname[32] = {0};
 	int lenfrom = 0;
 	int lento = 0;
+    ssize_t n = 0;
 
-	int n = 0;	
 	while(1){
 		if((n = read(sfd,msgbuf,1000)) <= 0){//若服务器退出，则退出
 			perror("read");
 			return (void*)-1;
 		}		
 		msgbuf[n] = '\0';
+
 		//所有的消息格式都是msgbuf = fromname:@toname realmsg
-		sscanf(msgbuf,"%[^:]",fromname);//:之前的所有字符
+        sscanf(msgbuf,"%[^:]",fromname);
 		lenfrom = strlen(fromname);
 		sscanf(msgbuf,"%*[^@]@%s",toname);
 		lento = strlen(toname);
 		strcpy(realmsg,msgbuf+lenfrom+lento+3);
-	//printf("fromname=%s toname=%s realmsg=%s",fromname,toname,realmsg);
+        //printf("fromname=%s toname=%s realmsg=%s",fromname,toname,realmsg);
 
-		//若对方确认接受文件,则设置ncond值
-		if(!strcmp(realmsg,"[verify]: OK.\n")){
-			ncond = 1;
-			pthread_cond_signal(&cond);
-		}
-		if(!strcmp(realmsg,"[verify]: NO.\n")){
-			ncond = 0;
-			pthread_cond_signal(&cond);
-		}
-		if(!strcmp(realmsg,"[verify]: CC.\n")){
-			ncond = 2;
-			pthread_cond_signal(&cond);
-		}
-		if(!strcmp(realmsg,"[verify]: SS.\n")){
-			ncond = -1;
-			pthread_cond_signal(&cond);
-		}
-		if(!strcmp(realmsg,"@toname not online!\n")){
-			ncond = -1;
-			pthread_cond_signal(&cond);
-		}
-		
-        if(!strstr(realmsg,"[verify]:")){//不显示,不打印[verify]:消息
-			//群发则不含@toname，realmsg包含\n
-			if(strlen(toname) == 1 && toname[0] == '.')
-				printf("%s:%s",fromname,realmsg);
-			else
+        //大多数的消息都不会含有认证信息[verify]:
+        if(!strstr(realmsg,"[verify]:")){   //不显示,不打印[verify]:消息
+            //群发消息
+            if(strlen(toname) == 1 && toname[0] == '.'){
+                if(!strcmp(fromname,"server")){
+                    printf("%s",msgbuf+10);
+                    if(strstr(msgbuf,"["))
+                        printf("\n");
+                    continue;
+                }else
+                    printf("%s:%s",fromname,realmsg);
+            //单发消息
+            }else
 				printf("%s:@%s %s",fromname,toname,realmsg);
 
             //此时msg不包含fromname:@toname 也不包含[verify]:类认证消息
             if(strstr(realmsg,":file") && strstr(realmsg,"$")){
                 sscanf(realmsg,"%*[^$]$%s",filepath);
                 if(pfile_recv(sfd,filepath,fromname,toname) == -1){
-                    continue;//文件接收失败的话，接收请求就不写入日志
+                    continue;   //文件接收失败的话，接收请求就不写入日志
                 }
+                memset(filepath,0,256);
             }
 
             t = time(NULL);
@@ -416,6 +404,39 @@ void* thread_recv(void* psfd){
             fprintf(pfile,"%02d:%02d:%02d %s",today->tm_hour,today->tm_min,today->tm_sec,msgbuf);
             pthread_mutex_unlock(&mutex);
         }
+        //若对方确认接受文件,则设置ncond值
+        else{
+            if(!strcmp(realmsg,"[verify]: OK.\n")){
+                ncond = 1;
+                pthread_cond_signal(&cond);
+            }
+            if(!strcmp(realmsg,"[verify]: NO.\n")){
+                ncond = 0;
+                pthread_cond_signal(&cond);
+            }
+            if(!strcmp(realmsg,"[verify]: CC.\n")){
+                ncond = 2;
+                pthread_cond_signal(&cond);
+            }
+            if(!strcmp(realmsg,"[verify]: SS.\n")){
+                ncond = -1;
+                pthread_cond_signal(&cond);
+            }
+            if(!strcmp(realmsg,"@toname is not online!\n")){
+                ncond = -1;
+                pthread_cond_signal(&cond);
+            }
+            if(!strcmp(realmsg,"[verify]: QUIT.\n")){
+                printf("\n[msg]: A relogin action pushed you offline.\n"
+                       "You may try relogin,or change password by command:chpass\n\n"
+			           );
+				//即使客户端发出消息让服务器退出，服务器也来不及接收消息
+				//所以客户端强制退出以后，留下的客户线程，必须服务器自行清理
+				exit(-1);
+			}
+        }
+        memset(msgbuf,0,1000);
+        memset(realmsg,0,1000);
 	}
 
 	return (void*)-1;
@@ -680,19 +701,8 @@ int pfile_recv(int sfd,char* filepath,char* fromname,char* toname){
 	return 0;
 }
 
-int pquit(int sfd){	
-
-	psendcmd(sfd);
-	exit(0);
-}
-
-int punknown(void){
-
-	printf("command is not known,please reinput.\n");
-	return 0;
-}
-
 int pconnect(char* ip){
+
 	SA4 serv;
 	serv.sin_family = AF_INET;
 	serv.sin_port = htons(8080);
@@ -709,5 +719,6 @@ int pconnect(char* ip){
 		perror("connect");
 		return -1;
 	}
+
 	return sfd;
 }

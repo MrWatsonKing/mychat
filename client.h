@@ -28,8 +28,6 @@ void* thread_send(void* psfd);
 void* thread_recv(void* psfd);
 int pfile_recv(int sfd,char* filepath,char* fromname,char* toname);
 int pfile_send(int sfd,char* filepath,char* toname);
-int pquit(int sfd);
-int punknown(void);
 int pconnect(char* ip);
 
 #endif//_CLIENT_H

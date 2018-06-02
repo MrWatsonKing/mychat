@@ -15,13 +15,13 @@ int main(int argc,char** argv){
 		printf("pconnect fails\n");
 		return -1;
 	}	
-	printf("successfully connected.\ncommand:help to view help list.\n");	
+    printf("successfully connected.\ncommand:help to view help list.\n\n");
 
 	while(1){
 
         //get commands:
         while(1){
-            printf("\ncommand:");
+            printf("command:");
             fflush(stdin);
             fgets(cmd,20,stdin);//包含'\n'
             if(strchr(cmd,' ')){
@@ -34,6 +34,7 @@ int main(int argc,char** argv){
             }
             break;
         }
+        // printf("%s",cmd);
 
         //execute commands.
         if(!strcmp(cmd,"help\n")){
@@ -41,11 +42,13 @@ int main(int argc,char** argv){
         }
         else if(!strcmp(cmd,"login\n")){
             if(logstatus == 1){
-                printf("can not relogin, please retry.\n");
+                printf("can not relogin, please retry.\n\n");
                 continue;
             }
-            if(psendcmd(sfd) == -1)
+            if(psendcmd(sfd) == -1){
+                printf("\n");
                 continue;
+            }
             plogin(sfd);
         }
         else if(!strcmp(cmd,"logout\n")){
@@ -53,37 +56,46 @@ int main(int argc,char** argv){
         }
         else if(!strcmp(cmd,"register\n")){
             if(logstatus == 1){
-                printf("please logout first!.\n");
+                printf("please logout first!.\n\n");
                 continue;
             }
-            if(psendcmd(sfd) == -1)
+            if(psendcmd(sfd) == -1){
+                printf("\n");
                 continue;
+            }
             pregister(sfd);
         }
         else if(!strcmp(cmd,"online\n")){
             if(logstatus == 0){
-                printf("please login first!\n");
+                printf("please login first!\n\n");
                 continue;
             }
-            if(psendcmd(sfd) == -1)
+            if(psendcmd(sfd) == -1){
+                printf("\n");
                 continue;
+            }
             pcheckon(sfd);
         }
         else if(!strcmp(cmd,"talk\n")){
             if(logstatus == 0){
-                printf("please login first!\n");
+                printf("please login first!\n\n");
                 continue;
             }
-            if(psendcmd(sfd) == -1)
+            if(psendcmd(sfd) == -1){
+                printf("\n");
                 continue;
+            }
             ptalk(sfd);
         }
         else if(!strcmp(cmd,"quit\n")){
-            if(psendcmd(sfd) == -1)
+            if(psendcmd(sfd) == -1){
+                printf("\n");
                 continue;
-            pquit(sfd);
+            }
+            printf("\n");
+            exit(0);
         }else{
-            punknown();
+            printf("command is not known,please reinput.\n\n");
         }
 	}
 	

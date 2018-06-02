@@ -29,14 +29,12 @@ int list_show(list* plist,int cfd){
 	dprintf(cfd,"%d\n",cnt);
 	if(cnt == 0) return 0;
 
-	char* userlist= (char*)malloc(32*cnt+100);//彻底杜绝内存不足? 32不是已经够了吗?
+	char* userlist= (char*)malloc(32*cnt);
 	if(userlist == NULL){
 		dprintf(cfd,"failed to get userlist.\n");
-		printf("failed to get userlist.\n");
+        printf("failed to get userlist.\n");
 		return -1;
 	}
-	
-	//使用strcat()之前，一定要bzero.bzero这个函数貌似经常出错
 	userlist[0] = '\0';
 
 	node* pnode = NULL;
@@ -48,8 +46,8 @@ int list_show(list* plist,int cfd){
 		lensum += strlen(pnode->username)+1;
 	}
 	userlist[lensum-1] = '\0';
-	dprintf(cfd,"%s\n",userlist);//userlist发出去之后包含\n
-	//printf("userlist sent:%s\n",userlist);
+	dprintf(cfd,"%s\n",userlist);
+    //printf("userlist sent:%s\n",userlist);
 	free(userlist);
 	userlist = NULL;
 	return 0;
@@ -87,7 +85,7 @@ char* list_getname(int cfd,list* plist){
 		if(cfd == pnode->tcfd)
 			return pnode->username;
 	
-//	printf("failed to get name from list where cfd=%d\n",cfd);
+//    printf("failed to get name from list where cfd=%d\n",cfd);
 	return NULL;
 }
 
@@ -123,7 +121,7 @@ int list_delete(int cfd,list* plist){
 			return 0;
 		}
 	}
-	printf("user cfd=%d does not exist!\n",cfd);
+//	printf("user cfd=%d does not exist!\n",cfd);
 	return -1;
 }
 
