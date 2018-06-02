@@ -61,7 +61,7 @@ void phelp(void){
            "\tuse format \"@<name> :file $<filepath>\" to send a file to <name>(critical) privately.\n"
            "\tfiles should not be broadcasted, but you can share files by uploading them to server.\n"
            "\tinput \":upload $<filepath>\" to upload a file to sever,\":download $<filename>\" to download a file from server,\n"
-           "\tand \":checkfiles\" to check files on sever.\n"
+           "\tand \":checkfiles\" to check files on server.\n"
            );
 }
 
