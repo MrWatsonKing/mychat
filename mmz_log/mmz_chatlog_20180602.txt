@@ -1,0 +1,16 @@
+07:41:55 king:@. hello there
+
+07:42:08 me:hello my darling!~
+
+07:42:20 king:@mmz how do you do
+
+07:42:30 me:i'm fine,thank you~
+
+07:42:51 me:@king lvu~
+
+07:43:31 king:@mmz :file $../update.txt
+
+07:45:35 king:@. [msg]:left talk.
+
+07:45:40 me::exit
+

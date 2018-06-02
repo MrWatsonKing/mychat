@@ -483,13 +483,12 @@ void* thread_recv(void* psfd){
 }
 
 int pfile_send(int sfd,char* filepath,char* toname){
-	printf("pfile_send: start sending..\n");
 
 	//toname最长25个字节
 	//解析文件名
-	char path[100] = {0};
+	char path[256] = {0};
 	char childpath[100] = {0};
-	char* name = NULL;
+	char* filename = NULL;
 	char cwd[100] = {0};
 	char tmpcwd[100] = {0};
 	getcwd(cwd,100);
@@ -498,12 +497,12 @@ int pfile_send(int sfd,char* filepath,char* toname){
 	
 	//解析目标路径
 	if(strstr(filepath,"/")){
-		name = 1 + strrchr(filepath,'/');
+		filename = 1 + strrchr(filepath,'/');
 		strcpy(childpath,filepath);
 		//将childpath倒数第一个/ 设置为\0
 		strrchr(childpath,'/')[0] = '\0';
 	}else{
-		name = filepath;
+		filename = filepath;
 		strcpy(childpath,cwd);
 	}
 	printf("path=%s name=%s\n",childpath,name);
@@ -550,14 +549,13 @@ int pfile_send(int sfd,char* filepath,char* toname){
 		strcat(path,"/");
 		strcat(path,childpath);
 	}
-	//路径解析完成
-	chdir(path);
-//	printf("working directory changed as:%s\n",path);
+	//路径解析完成	
+	strcat(strcat(path,"/"),filename);
 
 	//获取文件大小
 	int size = 0;
 	struct stat filestat = {0};
-	if(stat(name,&filestat) == -1){
+	if(stat(filename,&filestat) == -1){
 		dprintf(sfd,"@%s $staterr$\n",toname);
 		perror("stat error");
 		printf("\n");
@@ -584,7 +582,7 @@ int pfile_send(int sfd,char* filepath,char* toname){
 		return -1;
 	}
 	
-	FILE* psendfile = fopen(name,"r");
+	FILE* psendfile = fopen(path,"r");
 	if(psendfile == NULL){
 		dprintf(sfd,"@%s $openerr$\n",toname);
 		perror("fopen error");
@@ -594,7 +592,7 @@ int pfile_send(int sfd,char* filepath,char* toname){
 	
 	int n = 0,w = 0;
 	int wsum = 0;
-char filebuf[900] = {0};//不超过服务器接收范围
+	char filebuf[900] = {0};//不超过服务器接收范围
 	while(1){
 		pthread_mutex_lock(&mutex1);
 		pthread_cond_wait(&cond,&mutex1);//经过信号量通知,才能开始发送
@@ -622,19 +620,18 @@ char filebuf[900] = {0};//不超过服务器接收范围
 	ncond = 0;//发送完毕之后重置判断条件
 	fclose(psendfile);
 	psendfile = NULL;
-	chdir(cwd);
 	printf("file size=%d sent successful.\n\n",size);
 
 	return 0;
 }
 
 int pfile_recv(int sfd,char* filepath,char* fromname,char* toname){
-	char* name = NULL;
+	char* filename = NULL;
 	if(strstr(filepath,"/"))
-		name = 1 + strrchr(filepath,'/');
+		filename = 1 + strrchr(filepath,'/');
 	else
-		name = filepath;
-	printf("name=%s\n",name);
+		filename = filepath;
+	printf("name=%s\n",filename);
 
 	//因为不允许进行文件群发,所以所有的文件转发都是定向单发
 
@@ -670,7 +667,7 @@ int pfile_recv(int sfd,char* filepath,char* fromname,char* toname){
     strcat(recvpath,cwd);
     strcat(recvpath,"/");
     strcat(recvpath,myname);
-    strcat(recvpath,"/");
+    strcat(recvpath,"_file/");
 
     if(access(recvpath,R_OK|W_OK|X_OK) == -1){
         if(mkdir(recvpath,0777) == -1){
@@ -681,7 +678,7 @@ int pfile_recv(int sfd,char* filepath,char* fromname,char* toname){
 			printf("dir created OK:%s\n",recvpath);
     }
 	
-    strcat(recvpath,name);
+    strcat(recvpath,filename);
     dprintf(sfd,"@%s [verify]: OK.\n",fromname);
 
     FILE* precvfile = fopen(recvpath,"w");

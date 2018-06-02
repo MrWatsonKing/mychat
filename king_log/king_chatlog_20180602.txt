@@ -1,0 +1,14 @@
+07:41:55 me:hello there
+
+07:42:08 mmz:@. hello my darling!~
+
+07:42:20 me:@mmz how do you do
+
+07:42:30 mmz:@. i'm fine,thank you~
+
+07:42:51 mmz:@king lvu~
+
+07:43:31 me:@mmz :file $../update.txt
+
+07:45:35 me::exit
+
