@@ -19,7 +19,7 @@ typedef struct sockaddr SA;
 void phelp(void);
 int psendcmd(int sfd);
 int plogin(int sfd);
-void plogout(void);
+int plogout(int sfd);
 int pregister(int sfd);
 int pcheckon(int sfd);
 int ptalk(int sfd);

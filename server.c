@@ -4,50 +4,60 @@ extern int nthreads;
 extern list users;
 extern sqlite3* pdb;
 extern const char* dbname;
-extern ctd ctdarr[1000];
+char myname[32] = {0};
 
 void* pexit(void* null){
 	char cmd[32] = {0};
 	while(1){
 		fgets(cmd,32,stdin);//fgets()获取的字符串包含\n
-		if(!strcmp(cmd,":exit\n"))
+		if(!strcmp(cmd,":online\n"))
+			list_show();
+		if(!strcmp(cmd,":exit\n")){			
+			free(pdb);			
+			pdb = NULL;
 			exit(0);
+		}							
 	}
 }
 
 void* pnewthread(void* pcfd){
 	
-	char* myname = NULL;
-	int cfd = *(int*)pcfd;
-		
+	int cfd = *(int*)pcfd;	
+	
 	while(1){
         //get commands:
         char cmd[32] = {0};
         ssize_t n = 0;
         if((n = read(cfd,cmd,32)) < 0){
             perror("read error");
-            pquit(cfd);//如果读不到command,就会发出退出命令
+			//如果读不到command,就会发出退出命令
+            list_exit(cfd);
+			break;
         }
         cmd[n] = '\0';
         // printf("%s",cmd);
 
         //execute commands:
         if(!strcmp(cmd,"login\n"))
-            plogin(cfd,&myname);
+            plogin(cfd); 
+		else if(!strcmp(cmd,"logout\n"))
+            plogout(cfd);
         else if(!strcmp(cmd,"register\n"))
             pregister(cfd);
         else if(!strcmp(cmd,"online\n"))
             pcheckon(cfd);
         else if(!strcmp(cmd,"talk\n"))
-            ptalk_transfer(cfd,myname);
-        else if(!strcmp(cmd,"quit\n"))
-            pquit(cfd);
+            ptalk_transfer(cfd);
+        else if(!strcmp(cmd,"quit\n")){
+			list_exit(cfd);
+			break;
+		}           
 	}
-    
+	printf("client thread cfd=%d exited.\ttotal threads: %d\n",cfd,nthreads);
 	return (void*)0;	
 }
 
-int plogin(int cfd,char** pmyname){
+int plogin(int cfd){
 	
 	char buf[100] = {0};
     int tcfd = 0;
@@ -64,29 +74,28 @@ int plogin(int cfd,char** pmyname){
 	switch(db_check(username,password,dbname,pdb)){
 		case SQL_NONE:
 			dprintf(cfd,"username or password wrong!\n");
-//			printf("username or password wrong!\n");
 			break;
 		case SQL_FOUND:
             //如果登陆账号密码都正确，但发现用户名已经在userlist当中，则默认挤掉
-            //这种情况有两种可能，一种是用户正常的重复登录行为，一种是客户端崩溃导致服务器没有及时删除用户在线信息
-            if((tcfd = list_getcfd(username,&users)) > 0){
-                list_delete(tcfd, &users);
-                dprintf(tcfd,"server:@. [verify]: QUIT.\n");
-				//结束tcfd所对应的服务线程
-				for(int i=0;i<1000;i++){
-					if(ctdarr[i].status == 1 && ctdarr[i].cfd == tcfd){
-						pthread_cancel(ctdarr[i].tid);
-						ctdarr[i].status = 0;
-						nthreads--;
-						printf("client thread cfd=%d canceled.\ttotal threads: %d\n",tcfd,nthreads);
-						break;
-					}						
-				}				
-            }
-			dprintf(cfd,"login successful!\n");
-			*pmyname = (char*)malloc(32);
-			strcpy(*pmyname,username);
-//			printf("%s cfd=%d login successful!\n",username,cfd);
+            //这种情况有两种可能，一种是用户正常的重复登录行为，
+			//一种是客户端崩溃导致服务器没有及时删除用户在线信息
+			//只要能够获取用户名，就表明已经正常登录，且logstatus==1
+            if((tcfd = list_getcfd(username)) > 0){ 
+				//回收线程，并将节点从用户列表删除
+                list_delete(tcfd);
+				//发消息给可能仍在运行的客户端，使其发出提示并强制下线
+                dprintf(tcfd,"server:@. [verify]: QUIT.\n");				
+            }			
+			//需要检查当前登录 -1用户线程不存在 0用户线程存在但未登录 1用户线程正常登录 
+			if(list_logstatus(cfd) == 1){
+				dprintf(cfd,"already login! For relogin,try command:logout first.\n");
+				break;
+			}			
+			if(!list_login(cfd,username)){		
+				dprintf(cfd,"login successful!\n");
+				return 0;
+			}
+			dprintf(cfd,"login failure.\n");
 			break;
 		case SQL_ERROR:
 			dprintf(cfd,"database currently unavailable,please retry later!\n");
@@ -94,7 +103,17 @@ int plogin(int cfd,char** pmyname){
 		default:
 			break;			
 	}
-	return 0;
+	return -1;
+}
+
+int plogout(int cfd){
+	
+	if(!list_logout(cfd)){
+		dprintf(cfd,"logout successful!\n");
+		return 0;
+	}
+	dprintf(cfd,"logout failure!\n");
+	return -1;
 }
 
 int pregister(int cfd){
@@ -142,28 +161,32 @@ int pcheckon(int cfd){
     t = time(NULL);
     today = localtime(&t);
     
-    int cnt = list_count(&users);
-    dprintf(cfd, "server:@. members online: %d\n",cnt);
-    if(cnt == 0){
+    int chaters = list_count("chaters");
+    dprintf(cfd, "server:@. chaters online: %d\n",chaters);
+    if(chaters == 0){
         dprintf(cfd,"server:@. [%02d:%02d:%02d]\n",today->tm_hour,today->tm_min,today->tm_sec);
         return 0;
     }
     
-    char* userlist= (char*)malloc(32*cnt);
+    char* userlist= (char*)malloc(32*chaters);
     if(userlist == NULL){
         dprintf(cfd,"server:@. failed to get userlist.\n");
-        printf("failed to get userlist.\n");
+        //printf("failed to malloc for userlist.\n");
         return -1;
     }
     userlist[0] = '\0';
-    
+
+    int i = 0;
     node* pnode = NULL;
-    int lensum = 0;
+    int lensum = 0;	
     //如果plist->head.pnext == &plist->tail,即plist当中没有有效成员的话,就不会进行循环
     for(pnode = users.head.pnext; pnode != &users.tail; pnode = pnode->pnext){
-        strcat(userlist,pnode->username);
-        strcat(userlist," ");
-        lensum += strlen(pnode->username)+1;
+		if(i<chaters){
+			strcat(userlist,pnode->username);
+			strcat(userlist," ");
+			lensum += strlen(pnode->username)+1;
+			i++;
+		}
     }
     userlist[lensum] = '\0';
     
@@ -183,42 +206,41 @@ int pcheckon(int cfd){
     free(userlist);
     userlist = NULL;
 	
-	return cnt;
+	return chaters;
 }
 
-int ptalk_transfer(int cfd,char* myname){
+int ptalk_transfer(int cfd){
 	
-	if(list_getcfd(myname,&users) > 0){
-		dprintf(cfd,"relogin: user is online somewhere else!\n");
-//		printf("relogin: user is online somewhere else.\n");
+	if(!list_chatin(cfd))
+		dprintf(cfd,"enter talkroom successful.\n");
+	else{
+		dprintf(cfd,"enter talkroom failure.\n");
 		return -1;
-	}else{
-		dprintf(cfd,"enter talkroom successful.");
-//		printf("%d entered talkroom successful.\n",cfd);
 	}
-    
+
 	char msg[1000] = {0};
 	int tcfd = 0;
-	char toname[32] = {0};
-	list_append(myname,cfd,&users);
-    
-	ssize_t n = 0;
-	int len = 0;
+	char toname[32] = {0};	
+    int len = 0;
+	ssize_t n = 0;	
     
 	while((n = read(cfd,msg,1000)) > 0){
         //msg自带\n,尤其是文件内容,不能删掉
 		msg[n] = '\0';
         
-        if(!strcmp(msg,":online\n")){
+        if(!strcmp(msg,"@. :online\n")){
             pcheckon(cfd);
             continue;
-        }
-        
+        }        
 		if(!strcmp(msg,"@. :exit\n")){
 			char exitmsg[100] = {0};
-			sprintf(exitmsg,"@. [msg]:left talk.\n");
-			pgroupmsg(cfd,myname,exitmsg);
-			list_delete(cfd,&users);
+			sprintf(exitmsg,"@. [msg]:left chatroom.\n");
+			pgroupmsg(cfd,exitmsg);
+			list_chatout(cfd);			
+			break;
+		}
+		if(!strcmp(msg,"@. :quit\n")){
+			list_chatout(cfd);
 			break;
 		}
 
@@ -228,9 +250,9 @@ int ptalk_transfer(int cfd,char* myname){
 		len = (int)strlen(toname);
 
 		if(len == 1 && toname[0]=='.')//群发
-			pgroupmsg(cfd,myname,msg);//包含@toname
+			pgroupmsg(cfd,msg);//包含@toname
 		else{//单发
-			if((tcfd = list_getcfd(toname,&users)) == -1){
+			if((tcfd = list_getcfd(toname)) == -1){
 				dprintf(cfd,"server:@. @toname is not online!\n");
 				continue;			
 			}
@@ -243,7 +265,7 @@ int ptalk_transfer(int cfd,char* myname){
 	//printf("ptalk_transfer exited.\n");
 	return 0;
 }
-void pgroupmsg(int mycfd,char* myname,char* msg){
+void pgroupmsg(int mycfd,char* msg){
 	
 	int clients = 0;
 	int* cfdarr = NULL;
@@ -251,7 +273,7 @@ void pgroupmsg(int mycfd,char* myname,char* msg){
 	sscanf(msg,"@%s ",toname);
 
 	//该函数会调用malloc 所以用完之后 一定要free
-	list_getcfdarr(&cfdarr,&clients,&users);
+	list_getcfdarr(&cfdarr,&clients);
 	
 	for(int i=0; i<clients; i++)
 		if(cfdarr[i] != mycfd){
@@ -262,21 +284,6 @@ void pgroupmsg(int mycfd,char* myname,char* msg){
 	//free 临时数组的内存
 	free(cfdarr);
 	cfdarr = NULL;
-}
-
-int pquit(int cfd){
-	
-	if(list_getname(cfd,&users) != NULL)//如果cfd所对应的用户存在,则删除之
-		list_delete(cfd,&users);//针对意外退出情况
-	for(int i=0;i<1000;i++){
-		if(ctdarr[i].status == 1 && ctdarr[i].cfd == cfd){
-			ctdarr[i].status = 0;
-			nthreads--;
-			printf("client thread cfd=%d exited.\ttotal threads: %d\n",cfd,nthreads);
-			break;
-		}
-	}	
-	pthread_exit(NULL);
 }
 
 int plisten(int port,int backlog){

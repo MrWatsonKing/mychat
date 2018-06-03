@@ -48,14 +48,6 @@ int psendcmd(int sfd){
 //plogin成功后，logstatus置为1，否则logstatus等于初值0
 //plogout将logstatus重新置为0。
 
-void plogout(void){
-
-	if(logstatus == 1)
-		logstatus = 0;
-		
-    printf("logstatus off!\n\n");
-}
-
 int plogin(int sfd){
 
 	char buf[100] = {0};
@@ -65,6 +57,9 @@ int plogin(int sfd){
 		fgets(username,32,stdin);//包含'\n'
 		if(strchr(username,' ')){
 			printf("space is not permitted in username.\n");
+			continue;
+		}
+		if(!strcmp(username,"\n")){
 			continue;
 		}
 		if(strlen(username) > 24){
@@ -78,6 +73,9 @@ int plogin(int sfd){
 		strcpy(password,getpass("password:"));//包含'\n'
 		if(strchr(password,' ')){
 			printf("space is not permitted in password.\n");
+			continue;
+		}
+		if(!strcmp(password,"\n")){
 			continue;
 		}
 		if(strlen(password) > 24){
@@ -101,12 +99,34 @@ int plogin(int sfd){
 
 	if(strstr(buf,"successful")){
 		logstatus = 1;
-        printf("logstatus on!\n\n");
-	}else
-        printf("%s\n",buf);
-
-	return 0;
+        printf("login successful!\n\n");
+		return 0;
+	}
+        
+	printf("%s\n",buf);
+	return -1;
 }
+
+int plogout(int sfd){
+
+	char buf[100] = {0};
+	int n = 0;
+	if((n = read(sfd,buf,100)) < 0 ){
+        printf("failed to read logout reply from server.\n\n");
+		return -1;
+	}
+	buf[n] = '\0';
+
+	if(strstr(buf,"successful")){
+		logstatus = 0;
+        printf("logout successful!\n\n");
+		return 0;
+	}
+        
+	printf("%s\n",buf);
+	return -1;	
+}
+
 
 int pregister(int sfd){	
 
@@ -117,6 +137,9 @@ int pregister(int sfd){
 		fgets(username,32,stdin);//包含'\n'
 		if(strchr(username,' ')){
 			printf("space is not permitted in username\n");
+			continue;
+		}
+		if(!strcmp(username,"\n")){
 			continue;
 		}
 		if(strlen(username) > 24){
@@ -134,6 +157,9 @@ int pregister(int sfd){
 		strcpy(password,getpass("password:"));//包含'\n'
 		if(strchr(password,' ')){
 			printf("space is not permitted in password.\n");
+			continue;
+		}
+		if(!strcmp(password,"\n")){
 			continue;
 		}
 		if(strlen(password) > 24){
@@ -249,12 +275,12 @@ int ptalk(int sfd){
 	printf("\n");
 	pthread_t tid1,tid2;
     if(pthread_create(&tid1,0,thread_send,(void*)&sfd) != 0){
-		dprintf(sfd,":exit\n");
+		dprintf(sfd,"@. :quit\n");
         printf("error: failed to create thread_send.\n\n");
 	    return -1;
 	}
     if(pthread_create(&tid2,0,thread_recv,(void*)&sfd) != 0){
-		dprintf(sfd,":exit\n");
+		dprintf(sfd,"@. :quit\n");
         printf("error : failed to create thread_recv.\n\n");
         return -1;
 	}
@@ -288,10 +314,10 @@ void* thread_send(void* psfd){
 
 		if(strstr(msg,atme))
 			continue;
-		if(!strcmp(msg,"\n"))//空白消息,只包含\n字符
+		if(!strcmp(msg,"\n") || !strcmp(msg," \n"))//空白消息,只包含\n字符
 			continue;
         if(!strcmp(msg,":online\n")){
-            dprintf(sfd,"%s",msg);
+            dprintf(sfd,"@. %s",msg);
             continue;
         }
 		

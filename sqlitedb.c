@@ -21,7 +21,7 @@ int db_open(const char* dbname,sqlite3* pdb){
 		sqlite3_free(zerrmsg);
 		return 0;//数据表已经存在而导致键表不成功的情况，应当不妨碍程序的继续运行
 	}
-
+	
 	sqlite3_close(pdb);
 //	printf("table \"chaters\" has been created successfully.\n");
 	return 0;

@@ -28,8 +28,7 @@ int main(int argc,char** argv){
                 printf("space is not permitted in command.\n");
                 continue;
             }
-            if(strlen(cmd) == 0){
-                printf("command can't be null.\n");
+            if(!strcmp(cmd,"\n")){
                 continue;
             }
             break;
@@ -52,7 +51,15 @@ int main(int argc,char** argv){
             plogin(sfd);
         }
         else if(!strcmp(cmd,"logout\n")){
-            plogout();
+            if(logstatus == 0){
+                printf("not login yet!\n\n");
+                continue;
+            }
+            if(psendcmd(sfd) == -1){
+                printf("\n");
+                continue;
+            }
+            plogout(sfd);
         }
         else if(!strcmp(cmd,"register\n")){
             if(logstatus == 1){
@@ -91,8 +98,7 @@ int main(int argc,char** argv){
             if(psendcmd(sfd) == -1){
                 printf("\n");
                 continue;
-            }
-            printf("\n");
+            }            
             exit(0);
         }else{
             printf("command is not known,please reinput.\n\n");
