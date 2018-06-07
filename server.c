@@ -425,7 +425,7 @@ void pfile_upload(int cfd,char* filepath){
 
 void pfile_download(int cfd,char* filepath){
 	printf("pfile_download:\n");
-	dprintf(cfd,"server:@. :download\n");
+	dprintf(cfd,"server:@. :download\n");	
 
 }
 
