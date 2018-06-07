@@ -1,7 +1,6 @@
 #include "server.h" //mylist.c
 extern list users;
 extern int nthreads;
-extern char myname[32];
 
 int list_init(){
 
@@ -138,7 +137,6 @@ int list_login(int cfd,const char* username){
 	for(pnode = users.head.pnext; pnode != &users.tail; pnode = pnode->pnext)
 		if(cfd == pnode->tcfd){			
 			strcpy(pnode->username,username);
-			strcpy(myname,username);
 			pnode->logstatus = 1;
 			//printf("user cfd=%d login successful.\n",cfd);
 			return 0;
@@ -151,8 +149,7 @@ int list_logout(int cfd){
 	node* pnode = NULL;
 	for(pnode = users.head.pnext; pnode != &users.tail; pnode = pnode->pnext)
 		if(pnode->tcfd == cfd){
-			memset(pnode->username,0,32);
-			memset(myname,0,32);
+			memset(pnode->username,0,32);			
 			pnode->logstatus = 0;
 			//printf("user cfd=%d logouted successful.\n",cfd);
 			return 0;

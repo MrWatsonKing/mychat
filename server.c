@@ -4,12 +4,11 @@ extern int nthreads;
 extern list users;
 extern sqlite3* pdb;
 extern const char* dbname;
-char myname[32] = {0};
 
 void* pexit(void* null){
 	char cmd[32] = {0};
 	while(1){
-		fgets(cmd,32,stdin);//fgets()获取的字符串包含\n
+		fgets(cmd,32,stdin); //fgets()获取的字符串包含\n
 		if(!strcmp(cmd,":online\n"))
 			list_show();
 		if(!strcmp(cmd,":exit\n")){			
@@ -22,7 +21,9 @@ void* pexit(void* null){
 
 void* pnewthread(void* pcfd){
 	
-	int cfd = *(int*)pcfd;	
+	int cfd = *(int*)pcfd;
+	//myname必须是一个线程内的局部变量，因为不同的线程，对应不同的myname
+	char myname[32] = {0};	
 	
 	while(1){
         //get commands:
@@ -39,15 +40,15 @@ void* pnewthread(void* pcfd){
 
         //execute commands:
         if(!strcmp(cmd,"login\n"))
-            plogin(cfd); 
+            plogin(cfd,myname); 
 		else if(!strcmp(cmd,"logout\n"))
-            plogout(cfd);
+            plogout(cfd,myname);
         else if(!strcmp(cmd,"register\n"))
             pregister(cfd);
         else if(!strcmp(cmd,"online\n"))
             pcheckon(cfd);
         else if(!strcmp(cmd,"talk\n"))
-            ptalk_transfer(cfd);
+            ptalk_transfer(cfd,myname);
         else if(!strcmp(cmd,"quit\n")){
 			list_exit(cfd);
 			break;
@@ -57,7 +58,7 @@ void* pnewthread(void* pcfd){
 	return (void*)0;	
 }
 
-int plogin(int cfd){
+int plogin(int cfd,char* myname){
 	
 	char buf[100] = {0};
     int tcfd = 0;
@@ -91,7 +92,8 @@ int plogin(int cfd){
 				dprintf(cfd,"already login! For relogin,try command:logout first.\n");
 				break;
 			}			
-			if(!list_login(cfd,username)){		
+			if(!list_login(cfd,username)){
+				strcpy(myname,username);		
 				dprintf(cfd,"login successful!\n");
 				return 0;
 			}
@@ -106,9 +108,10 @@ int plogin(int cfd){
 	return -1;
 }
 
-int plogout(int cfd){
+int plogout(int cfd,char* myname){
 	
 	if(!list_logout(cfd)){
+		memset(myname,0,32);
 		dprintf(cfd,"logout successful!\n");
 		return 0;
 	}
@@ -209,7 +212,7 @@ int pcheckon(int cfd){
 	return chaters;
 }
 
-int ptalk_transfer(int cfd){
+int ptalk_transfer(int cfd,char* myname){
 	
 	if(!list_chatin(cfd))
 		dprintf(cfd,"enter talkroom successful.\n");
@@ -219,6 +222,7 @@ int ptalk_transfer(int cfd){
 	}
 
 	char msg[1000] = {0};
+	char filepath[256] = {0};
 	int tcfd = 0;
 	char toname[32] = {0};	
     int len = 0;
@@ -235,7 +239,7 @@ int ptalk_transfer(int cfd){
 		if(!strcmp(msg,"@. :exit\n")){
 			char exitmsg[100] = {0};
 			sprintf(exitmsg,"@. [msg]:left chatroom.\n");
-			pgroupmsg(cfd,exitmsg);
+			pgroupmsg(cfd,exitmsg,myname);
 			list_chatout(cfd);			
 			break;
 		}
@@ -249,23 +253,32 @@ int ptalk_transfer(int cfd){
 		sscanf(msg,"@%s ",toname);
 		len = (int)strlen(toname);
 
-		if(len == 1 && toname[0]=='.')//群发
-			pgroupmsg(cfd,msg);//包含@toname
-		else{//单发
+		if(len == 1 && toname[0]=='.') {//群发消息或文件上传下载请求
+			if(strstr(msg,":upload")){
+				sscanf(msg,"%*[^$]$%s",filepath);
+				pfile_upload(cfd,filepath);
+			}
+			else if(strstr(msg,":download")){
+				sscanf(msg,"%*[^$]$%s",filepath);
+				pfile_download(cfd,filepath);
+			}
+			else 
+				pgroupmsg(cfd,msg,myname); //群发消息 包含@toname
+		}else{//单发
 			if((tcfd = list_getcfd(toname)) == -1){
 				dprintf(cfd,"server:@. @toname is not online!\n");
 				continue;			
 			}
 			if(strstr(msg,":file") && strstr(msg,"$"))//只对文件命令发送确认消息
 				dprintf(cfd,"server:@. [verify]: OK.\n");
-			dprintf(tcfd,"%s:%s",myname,msg);//包含@toname
+			dprintf(tcfd,"%s:%s",myname,msg); //包含@toname
 	//		printf("transfer realmsg len=%lu.\n",strlen(msg)-len-2);
 		}
 	}
 	//printf("ptalk_transfer exited.\n");
 	return 0;
 }
-void pgroupmsg(int mycfd,char* msg){
+void pgroupmsg(int mycfd,char* msg,char* myname){
 	
 	int clients = 0;
 	int* cfdarr = NULL;
@@ -277,13 +290,143 @@ void pgroupmsg(int mycfd,char* msg){
 	
 	for(int i=0; i<clients; i++)
 		if(cfdarr[i] != mycfd){
-			dprintf(cfdarr[i],"%s:%s",myname,msg);//包含@toname
+			dprintf(cfdarr[i],"%s:%s",myname,msg); //包含@toname
 	//		printf("broadcast realmsg len=%lu.\n",strlen(msg)-len-2);
 		}
 	
 	//free 临时数组的内存
 	free(cfdarr);
 	cfdarr = NULL;
+}
+
+void pfile_upload(int cfd,char* filepath){
+	printf("pfile_upload:\n");
+
+	//获取文件名
+	char* filename = NULL;
+	if(strstr(filepath,"/"))
+		filename = 1 + strrchr(filepath,'/');
+	else
+		filename = filepath;
+	printf("name=%s\n",filename);
+
+	//获取文件大小
+	int size = 0;
+	char sizebuf[64] = {0};
+	int n = 0;
+	if((n = read(cfd,sizebuf,32)) < 0){
+		perror("read error");
+		printf("\n");
+		return;
+	}
+	sizebuf[n] = '\0';
+	if(strstr(sizebuf,"$staterr$") || strstr(sizebuf,"$sizeerr$")){
+		printf("sender failed to fetch file size.\n\n");
+		return;
+	}
+	//size > 0，才会接收到文件大小
+	sscanf(sizebuf,"%*s filesize=%d\n",&size);
+//	printf("size=%d\n",size);
+
+	//创建接收文件的文件夹
+    char cwd[100] = {0};
+    char recvpath[256] = {0};
+    getcwd(cwd,100);
+    strcat(recvpath,cwd);
+    strcat(recvpath,"/");
+    strcat(recvpath,"shared_files/");
+
+    if(access(recvpath,R_OK|W_OK|X_OK) == -1){
+        if(mkdir(recvpath,0777) == -1){
+            dprintf(cfd,"server:@. [verify]: NO.\n");
+            perror("mkdir error");
+            return;
+        }else
+			printf("dir created OK:%s\n",recvpath);
+    }	
+    strcat(recvpath,filename);
+	dprintf(cfd,"server:@. [verify]: OK.\n");
+
+	//验证发送方文件是否打开成功
+	if((n = read(cfd,sizebuf,32)) < 0){
+		perror("read error");
+		printf("\n");
+		return;
+	}
+	sizebuf[n] = '\0';
+	if(strstr(sizebuf,"$openerr$")){
+		printf("error: sender failed to open file.\n");
+		return;
+	}
+
+    FILE* precvfile = fopen(recvpath,"w");
+	if(precvfile == NULL){
+		dprintf(cfd,"server:@. [verify]: SS.\n");
+		perror("fopen error");
+		fclose(precvfile);
+		printf("\n");
+		return;
+	}
+
+	int r = 0;
+	int w = 0;
+	int wsum = 0;
+	char filebuf[1000] = {0};
+	char realmsg[1000] = {0};
+	int lenreal = 0;
+	//因为read()返回次数不确定，所以循环次数不可以与发送次数一致
+	while(1){
+		//通知发送方可以发送了
+		dprintf(cfd,"server:@. [verify]: CC.\n");
+		r = read(cfd,filebuf,1000); //首先进入等待状态,阻塞接收
+		if(r < 0){//格式为@. realmsg\n
+			dprintf(cfd,"server:@. [verify]: SS.\n");
+			perror("read error");
+			fclose(precvfile);
+			precvfile = NULL;
+			printf("\n");
+			return;
+		}
+		filebuf[r] = '\0';
+		//一共接收r个有效字符,
+		//格式为@. realmsg\n
+		strcpy(realmsg,filebuf+3);
+		//绝对不能用sscanf(),因为它遇空格或者换行就会停止
+
+		if(strstr(realmsg,"$readerr$")){
+			dprintf(cfd,"server:@. [verify]: SS.\n");
+			printf("sender failed to send file content.\n\n");
+			fclose(precvfile);
+			precvfile = NULL;
+			return;
+		}
+		lenreal = strlen(realmsg); //包含\n
+		realmsg[lenreal-1] = '\0'; // \n替换为\0
+
+		if((w = fwrite(realmsg,1,strlen(realmsg),precvfile)) < 0){
+			dprintf(cfd,"server:@. [verify]: SS.\n");
+			ferror(precvfile);
+			fclose(precvfile);
+			precvfile = NULL;
+			printf("\n");
+			return;
+		}
+
+		wsum += w;
+		printf("recved: %d bytes, %%%.2lf...\n",w,wsum*100.0/size);
+		if(wsum >= size) break;
+	}
+
+	fclose(precvfile);
+	precvfile = NULL;
+	printf("file size=%d recved successful.\n\n",size);
+
+}
+
+void pfile_download(int cfd,char* filepath){
+	printf("pfile_download:\n");
+	dprintf(cfd,"server:@. :download\n");
+
 }
 
 int plisten(int port,int backlog){

@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -34,12 +35,14 @@ typedef struct list{
 
 void* pexit(void*);
 void* pnewthread(void* pcfd);
-int plogin(int cfd);
-int plogout(int cfd);
+int plogin(int cfd,char* myname);
+int plogout(int cfd,char* myname);
 int pregister(int cfd);
 int pcheckon(int cfd);
-int ptalk_transfer(int cfd);
-void pgroupmsg(int mycfd,char* msg);
+int ptalk_transfer(int cfd,char* myname);
+void pgroupmsg(int mycfd,char* msg,char* myname);
+void pfile_upload(int cfd,char* filepath);
+void pfile_download(int cfd,char* filepath);
 int plisten(int port,int backlog);
 
 int list_init();
