@@ -1,4 +1,4 @@
-#include "server.h"//servermain.c
+#include "server.h"  // servermain.c
 
 list users;
 sqlite3* pdb;

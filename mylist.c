@@ -1,4 +1,4 @@
-#include "server.h" //mylist.c
+#include "server.h" // mylist.c
 extern list users;
 extern int nthreads;
 

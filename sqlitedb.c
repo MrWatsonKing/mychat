@@ -1,4 +1,4 @@
-#include "server.h" //sqlitedb.c
+#include "server.h" // sqlitedb.c
 
 int db_open(const char* dbname,sqlite3* pdb){
 	char* sql = NULL;

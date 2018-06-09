@@ -1,4 +1,4 @@
-//server.h
+/////////////////////////////////////// server.h
 
 #ifndef _SERVER_H
 #define _SERVER_H
