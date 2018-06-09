@@ -385,7 +385,7 @@ void* thread_send(void* psfd){
 		t = time(NULL);
 		today = localtime(&t);
 		pthread_mutex_lock(&mutex);
-        fprintf(pfile,"%02d:%02d:%02d me:%s",today->tm_hour,today->tm_min,today->tm_sec,msg);
+        fprintf(pfile,"%02d:%02d:%02d me: %s",today->tm_hour,today->tm_min,today->tm_sec,msg);
 		pthread_mutex_unlock(&mutex);
         //聊天界面输入:exit回车，退出聊天界面
 		if(!strcmp(msg,":exit\n"))
@@ -438,7 +438,7 @@ void* thread_recv(void* psfd){
 						continue;
 					}
                 }else
-                    printf("%s:%s",fromname,realmsg);
+                    printf("%s: %s",fromname,realmsg);
             //单发消息
             }else
 				printf("%s:@%s %s",fromname,toname,realmsg);
@@ -456,7 +456,7 @@ void* thread_recv(void* psfd){
             t = time(NULL);
             today = localtime(&t);
             pthread_mutex_lock(&mutex);
-            fprintf(pfile,"%02d:%02d:%02d %s",today->tm_hour,today->tm_min,today->tm_sec,msgbuf);
+            fprintf(pfile,"%02d:%02d:%02d %s: %s",today->tm_hour,today->tm_min,today->tm_sec,fromname,realmsg);
             pthread_mutex_unlock(&mutex);
         }
         //若对方确认接受文件,则设置ncond值
