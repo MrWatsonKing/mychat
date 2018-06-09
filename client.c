@@ -323,6 +323,12 @@ void* thread_send(void* psfd){
 		
 		//规定群发@.之后，所有消息都带有@<toname>
 		if(msg[0] == '@'){//如果指定接收人，则修改toname为给定值;
+			//检查是否为文件上传下载请求
+			if(strstr(msg,":upload $") || strstr(msg,":download $")){
+					printf("@<toname> for :upload or :download is illegal.\n");
+					continue;
+				}
+
 			//发送文件
 			if(strstr(msg,":file")){
 				sscanf(msg,"@%s",toname);
@@ -365,7 +371,8 @@ void* thread_send(void* psfd){
 				if(!strstr(msg,"$")){
 					printf("$filepath should be designated.\n");
 					continue;
-				}				
+				}
+				
 				sscanf(msg,"%*[^$]$%s",filepath);
 				strtok(filepath,"\n");
 				dprintf(sfd,"@. %s",msg); //msg 包含\n
@@ -422,6 +429,7 @@ void* thread_recv(void* psfd){
 		strcpy(realmsg,msgbuf+lenfrom+lento+3);
    //   printf("fromname=%s toname=%s realmsg=%s",fromname,toname,realmsg);
 
+		//:file 命令默认不能群发 所以不会在这一步执行
         //大多数的消息都不会含有认证信息[verify]:
         if(!strstr(realmsg,"[verify]:")){   //不显示,不打印[verify]:消息
             //群发消息
@@ -443,7 +451,7 @@ void* thread_recv(void* psfd){
             }else
 				printf("%s:@%s %s",fromname,toname,realmsg);
 
-            //此时msg不包含fromname:@toname 也不包含[verify]:类认证消息
+            //此时realmsg不包含fromname:@toname 也不包含[verify]:类认证消息
             if(strstr(realmsg,":file") && strstr(realmsg,"$")){
                 sscanf(realmsg,"%*[^$]$%s",filepath);
 				strtok(filepath,"\n");

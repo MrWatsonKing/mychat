@@ -253,7 +253,7 @@ int ptalk_transfer(int cfd,char* myname){
 		sscanf(msg,"@%s ",toname);
 		len = (int)strlen(toname);
 
-		if(len == 1 && toname[0]=='.') {//群发消息或文件上传下载请求
+		if(len == 1 && toname[0]=='.') {//群发消息 文件上传下载请求必然是以群发形式
 			if(strstr(msg,":upload")){
 				sscanf(msg,"%*[^$]$%s",filepath);
 				strtok(filepath,"\n");
