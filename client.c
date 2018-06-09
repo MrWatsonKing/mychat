@@ -325,39 +325,48 @@ void* thread_send(void* psfd){
 		if(msg[0] == '@'){//如果指定接收人，则修改toname为给定值;
 			//检查是否为文件上传下载请求
 			if(strstr(msg,":upload $") || strstr(msg,":download $")){
-					printf("@<toname> for :upload or :download is illegal.\n");
-					continue;
-				}
-
-			//发送文件
+				printf("@<toname> for :upload or :download is illegal.\n");
+				continue;
+			}
+				
+			//验证文件命令合规性
 			if(strstr(msg,":file")){
 				sscanf(msg,"@%s",toname);
 				if(strlen(toname) == 1 && toname[0] == '.'){
 					printf("can not broadcast file by @.\n");
 					continue;
-				}
-				
+				}				
 				if(!strstr(msg,"$")){
 					printf("$filepath should be designated.\n");
 					continue;
 				}
 				sscanf(msg,"%*[^$]$%s",filepath);
 				strtok(filepath,"\n");
-				
-				dprintf(sfd,"%s",msg); //msg 包含@toname 和\n
-				//首先判断toname是否存在,如果不存在,则返回
-				pthread_mutex_lock(&mutex1);
-				pthread_cond_wait(&cond,&mutex1); //经过通知,才能开始发送
-				pthread_mutex_unlock(&mutex1);
-				if(ncond != 1) continue;
-				if(pfile_send(sfd,filepath,toname) == -1) continue;
-				ncond = 0;	
-			//发送普通消息		
+				if(strlen(filepath) == 0){
+					printf("filepath should not be null.\n");
+					continue;
+				}		
+
+			//验证消息命令合规性		
 			}else{
 				if(sscanf(msg,"%*s %s\n",tmpmsg) == 0) 
 					continue; 
-				dprintf(sfd,"%s",msg); //msg 包含@toname 和\n
 			}
+
+			//将合规的文件命令或消息命令发送到服务器
+			dprintf(sfd,"%s",msg); //msg 包含@toname 和\n
+
+			//服务器验证toname是否存在,存在返回[verify]: OK. 不存在返回[verify]: NOL.
+			pthread_mutex_lock(&mutex1);
+			pthread_cond_wait(&cond,&mutex1); 
+			pthread_mutex_unlock(&mutex1);
+			//任何目标用户不在线的消息或文件命令,都不会被转发 且不生成聊天记录
+			if(ncond != 1) continue;
+			ncond = 0;
+
+			if(strstr(msg,":file"))
+				if(pfile_send(sfd,filepath,toname) == -1) continue;
+			
 		//不带@<toname>,补加@. 
 		}else{
 			if(strstr(msg,":file")){ //不允许进行文件群发
@@ -375,6 +384,11 @@ void* thread_send(void* psfd){
 				
 				sscanf(msg,"%*[^$]$%s",filepath);
 				strtok(filepath,"\n");
+				if(strlen(filepath) == 0){
+					printf("filepath should not be null.\n");
+					continue;
+				}
+
 				dprintf(sfd,"@. %s",msg); //msg 包含\n
 
 				if(strstr(msg,":upload")){
@@ -485,7 +499,8 @@ void* thread_recv(void* psfd){
                 ncond = -1;
                 pthread_cond_signal(&cond);
             }
-            if(!strcmp(realmsg,"@toname is not online!\n")){
+            if(!strcmp(realmsg,"[verify]: NOL.\n")){
+				printf("@toname is not online!\n");
                 ncond = -1;
                 pthread_cond_signal(&cond);
             }

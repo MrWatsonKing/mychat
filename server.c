@@ -267,12 +267,13 @@ int ptalk_transfer(int cfd,char* myname){
 			else 
 				pgroupmsg(cfd,msg,myname); //群发消息 包含@toname
 		}else{//单发
+			//进行目标用户在线状态验证
 			if((tcfd = list_getcfd(toname)) == -1){
-				dprintf(cfd,"server:@. @toname is not online!\n");
+				dprintf(cfd,"server:@. [verify]: NOL.\n");
 				continue;			
 			}
-			if(strstr(msg,":file") && strstr(msg,"$"))//只对文件命令发送确认消息
-				dprintf(cfd,"server:@. [verify]: OK.\n");
+			dprintf(cfd,"server:@. [verify]: OK.\n");
+			//验证通过之后进行消息转发	
 			dprintf(tcfd,"%s:%s",myname,msg); //包含@toname
 	//		printf("transfer realmsg len=%lu.\n",strlen(msg)-len-2);
 		}
