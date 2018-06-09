@@ -256,10 +256,12 @@ int ptalk_transfer(int cfd,char* myname){
 		if(len == 1 && toname[0]=='.') {//群发消息或文件上传下载请求
 			if(strstr(msg,":upload")){
 				sscanf(msg,"%*[^$]$%s",filepath);
+				strtok(filepath,"\n");
 				pfile_upload(cfd,filepath);
 			}
 			else if(strstr(msg,":download")){
 				sscanf(msg,"%*[^$]$%s",filepath);
+				strtok(filepath,"\n");
 				pfile_download(cfd,filepath);
 			}
 			else 
@@ -300,7 +302,7 @@ void pgroupmsg(int mycfd,char* msg,char* myname){
 }
 
 void pfile_upload(int cfd,char* filepath){
-	printf("pfile_upload:\n");
+	printf("\nfile_upload: %s\n",filepath);
 
 	//获取文件名
 	char* filename = NULL;
@@ -314,7 +316,7 @@ void pfile_upload(int cfd,char* filepath){
 	int size = 0;
 	char sizebuf[64] = {0};
 	int n = 0;
-	if((n = read(cfd,sizebuf,32)) < 0){
+	if((n = read(cfd,sizebuf,64)) < 0){
 		perror("read error");
 		printf("\n");
 		return;
@@ -333,8 +335,7 @@ void pfile_upload(int cfd,char* filepath){
     char recvpath[256] = {0};
     getcwd(cwd,100);
     strcat(recvpath,cwd);
-    strcat(recvpath,"/");
-    strcat(recvpath,"shared_files/");
+    strcat(recvpath,"/shared_files/");
 
     if(access(recvpath,R_OK|W_OK|X_OK) == -1){
         if(mkdir(recvpath,0777) == -1){
@@ -348,7 +349,7 @@ void pfile_upload(int cfd,char* filepath){
 	dprintf(cfd,"server:@. [verify]: OK.\n");
 
 	//验证发送方文件是否打开成功
-	if((n = read(cfd,sizebuf,32)) < 0){
+	if((n = read(cfd,sizebuf,64)) < 0){
 		perror("read error");
 		printf("\n");
 		return;
@@ -378,6 +379,7 @@ void pfile_upload(int cfd,char* filepath){
 	while(1){
 		//通知发送方可以发送了
 		dprintf(cfd,"server:@. [verify]: CC.\n");
+
 		r = read(cfd,filebuf,1000); //首先进入等待状态,阻塞接收
 		if(r < 0){//格式为@. realmsg\n
 			dprintf(cfd,"server:@. [verify]: SS.\n");
@@ -393,8 +395,7 @@ void pfile_upload(int cfd,char* filepath){
 		strcpy(realmsg,filebuf+3);
 		//绝对不能用sscanf(),因为它遇空格或者换行就会停止
 
-		if(strstr(realmsg,"$readerr$")){
-			dprintf(cfd,"server:@. [verify]: SS.\n");
+		if(strstr(realmsg,"$readerr$")){			
 			printf("sender failed to send file content.\n\n");
 			fclose(precvfile);
 			precvfile = NULL;
@@ -424,8 +425,101 @@ void pfile_upload(int cfd,char* filepath){
 }
 
 void pfile_download(int cfd,char* filepath){
-	printf("pfile_download:\n");
-	dprintf(cfd,"server:@. :download\n");	
+	printf("\nfile_download: %s\n",filepath);
+	dprintf(cfd,"server:@. :download $%s\n",filepath);	
+
+	//获取文件名
+	char* filename = NULL;
+	if(strstr(filepath,"/"))
+		filename = 1 + strrchr(filepath,'/');
+	else
+		filename = filepath;
+	printf("name=%s\n",filename);
+
+	char path[256] = {0};
+	char cwd[100] = {0};
+	getcwd(cwd,100);
+	strcat(path,cwd);
+	strcat(path,"/shared_files/");
+	strcat(path,filename);
+
+	//获取并发送文件大小
+	int size = 0;
+	struct stat filestat = {0};
+	if(stat(path,&filestat) == -1){
+		dprintf(cfd,"server:@. $staterr$\n");
+		perror("stat error");
+		printf("\n");
+		return;
+	}
+	size = filestat.st_size;
+	if(size == 0){
+		dprintf(cfd,"server:@. $sizeerr$\n");
+		printf("filesize=0,failed to send file.\n\n");
+		return;
+	}
+	//size > 0，则发送文件大小	
+	dprintf(cfd,"server:@. filesize=%d\n",size);
+
+	char sizebuf[64] = {0};
+	int n = 0;
+	if((n = read(cfd,sizebuf,64)) < 0){
+		perror("read error");
+		printf("\n");
+		return;
+	}
+	sizebuf[n] = '\0';
+	if(strstr(sizebuf,"[verify]: NO.")){
+		printf("client canceled file_download action.\n\n");
+		return;
+	}
+	
+	//打开本地文件，并根据结果向服务器发送进展情况
+	FILE* psendfile = fopen(path,"r");
+	if(psendfile == NULL){
+		dprintf(cfd,"server:@. $openerr$\n");
+		perror("fopen error");
+		fclose(psendfile);
+		printf("\n");
+		return;
+	}
+	dprintf(cfd,"server:@. fileopen OK.\n");
+
+	int m = 0,w = 0;
+	int wsum = 0;
+	char filebuf[900] = {0}; //不超过服务器接收范围
+	while(1){
+		if((n = read(cfd,sizebuf,64)) < 0){
+			perror("read error");
+			printf("\n");
+			return;
+		}
+		sizebuf[n] = '\0';
+		if(!strstr(sizebuf,"[verify]: CC.")){
+			printf("client canceled file_download action.\n\n");
+			return;
+		}
+
+		if((m = fread(filebuf,1,900,psendfile)) < 0){
+			dprintf(cfd,"@. $readerr$\n");
+			ferror(psendfile);
+			printf("\n");
+			fclose(psendfile);
+			psendfile = NULL;
+			return;
+		}
+		filebuf[m] = '\0';
+
+		w = dprintf(cfd,"@. %s\n", filebuf); //增加\n以出尽缓存
+
+		wsum += w-4;
+		printf("sent: %d bytes, %%%.2lf...\n",w-4,wsum*100.0/size);				
+		if(wsum >= size)  break;
+	}
+		
+	fclose(psendfile);
+	psendfile = NULL;
+	printf("file size=%d sent successful.\n\n",size);
 
 }
 

@@ -336,6 +336,7 @@ void* thread_send(void* psfd){
 					continue;
 				}
 				sscanf(msg,"%*[^$]$%s",filepath);
+				strtok(filepath,"\n");
 				
 				dprintf(sfd,"%s",msg); //msg 包含@toname 和\n
 				//首先判断toname是否存在,如果不存在,则返回
@@ -366,6 +367,7 @@ void* thread_send(void* psfd){
 					continue;
 				}				
 				sscanf(msg,"%*[^$]$%s",filepath);
+				strtok(filepath,"\n");
 				dprintf(sfd,"@. %s",msg); //msg 包含\n
 
 				if(strstr(msg,":upload")){
@@ -427,6 +429,7 @@ void* thread_recv(void* psfd){
                 if(!strcmp(fromname,"server")){
 					if(strstr(realmsg,":download")){
 						sscanf(realmsg,"%*[^$]$%s",filepath);
+						strtok(filepath,"\n");
 						if(pfile_download(sfd,filepath) == -1) continue;
 					}else{
 						printf("%s",realmsg);
@@ -443,6 +446,7 @@ void* thread_recv(void* psfd){
             //此时msg不包含fromname:@toname 也不包含[verify]:类认证消息
             if(strstr(realmsg,":file") && strstr(realmsg,"$")){
                 sscanf(realmsg,"%*[^$]$%s",filepath);
+				strtok(filepath,"\n");
                 if(pfile_recv(sfd,filepath,fromname,toname) == -1){
                     continue;   //文件接收失败的话，接收请求就不写入日志
                 }
@@ -561,6 +565,7 @@ char* ppath_parse(char* filepath,char* path){
 }
 
 int pfile_send(int sfd,char* filepath,char* toname){
+	printf("\nfile_send: %s\n",filepath);
 
 	//toname最长25个字节
 	int len = strlen(toname);
@@ -568,7 +573,7 @@ int pfile_send(int sfd,char* filepath,char* toname){
 	char path[256] = {0};
 	ppath_parse(filepath,path);		
 	
-	//获取文件大小
+	//获取并发送文件大小
 	int size = 0;
 	struct stat filestat = {0};
 	if(stat(path,&filestat) == -1){
@@ -649,6 +654,7 @@ int pfile_send(int sfd,char* filepath,char* toname){
 }
 
 int pfile_recv(int sfd,char* filepath,char* fromname,char* toname){
+	printf("\nfile_recv: %s\n",filepath);
 
 	char* filename = NULL;
 	if(strstr(filepath,"/"))
@@ -659,11 +665,11 @@ int pfile_recv(int sfd,char* filepath,char* fromname,char* toname){
 
 	//因为不允许进行文件群发,所以所有的文件转发都是定向单发
 
-	//获取文件大小
+	//接收文件大小
 	int size = 0;
 	char sizebuf[64] = {0};
 	int n = 0;
-	if((n = read(sfd,sizebuf,32)) < 0){
+	if((n = read(sfd,sizebuf,64)) < 0){
 		perror("read error");
 		printf("\n");
 		return -1;
@@ -699,7 +705,7 @@ int pfile_recv(int sfd,char* filepath,char* fromname,char* toname){
     dprintf(sfd,"@%s [verify]: OK.\n",fromname);
 
 	//验证发送方文件是否打开成功
-	if((n = read(sfd,sizebuf,32)) < 0){
+	if((n = read(sfd,sizebuf,64)) < 0){
 		perror("read error");
 		printf("\n");
 		return -1;
@@ -731,6 +737,7 @@ int pfile_recv(int sfd,char* filepath,char* fromname,char* toname){
 	while(1){
 		//通知发送方可以发送了
 		dprintf(sfd,"@%s [verify]: CC.\n",fromname);
+
 		r = read(sfd,filebuf,1000); //首先进入等待状态,阻塞接收
 		if(r < 0){//格式为fromname:@toname realmsg\n
 			dprintf(sfd,"@%s [verify]: SS.\n",fromname);
@@ -747,7 +754,6 @@ int pfile_recv(int sfd,char* filepath,char* fromname,char* toname){
 		//绝对不能用sscanf(),因为它遇空格或者换行就会停止
 
 		if(strstr(realmsg,"$readerr$")){
-			dprintf(sfd,"@%s [verify]: SS.\n",fromname);
 			printf("sender failed to send file content.\n\n");
 			fclose(precvfile);
 			precvfile = NULL;
@@ -778,13 +784,13 @@ int pfile_recv(int sfd,char* filepath,char* fromname,char* toname){
 }
 
 int pfile_upload(int sfd,char* filepath){
-	printf("pfile_upload:\n");
+	printf("\nfile_upload: %s\n",filepath);
 
 	//解析相对路径，得到绝对路径
 	char path[256] = {0};
 	ppath_parse(filepath,path);			
 	
-	//获取文件大小
+	//获取并发送文件大小
 	int size = 0;
 	struct stat filestat = {0};
 	if(stat(path,&filestat) == -1){
@@ -864,7 +870,127 @@ int pfile_upload(int sfd,char* filepath){
 }
 
 int pfile_download(int sfd,char* filepath){
-	printf("pfile_download:\n");
+	printf("\nfile_download: %s\n",filepath);
+
+	//获取文件名
+	char* filename = NULL;
+	if(strstr(filepath,"/"))
+		filename = 1 + strrchr(filepath,'/');
+	else
+		filename = filepath;
+	printf("name=%s\n",filename);
+
+	//接收文件大小
+	int size = 0;
+	char sizebuf[64] = {0};
+	int n = 0;
+	if((n = read(sfd,sizebuf,64)) < 0){
+		perror("read error");
+		printf("\n");
+		return -1;
+	}
+	sizebuf[n] = '\0';
+	if(strstr(sizebuf,"$staterr$") || strstr(sizebuf,"$sizeerr$")){
+		printf("sender failed to fetch file size.\n\n");
+		return -1;
+	}
+	//size > 0，才会接收到文件大小
+	sscanf(sizebuf,"%*s filesize=%d\n",&size);
+//	printf("size=%d\n",size);
+
+	//创建接收文件的文件夹
+    char cwd[100] = {0};
+    char recvpath[256] = {0};
+    getcwd(cwd,100);
+    strcat(recvpath,cwd);
+	strcat(recvpath,"/");
+	strcat(recvpath,myname);
+    strcat(recvpath,"_file/");
+
+    if(access(recvpath,R_OK|W_OK|X_OK) == -1){
+        if(mkdir(recvpath,0777) == -1){
+            dprintf(sfd,"@. [verify]: NO.\n");
+            perror("mkdir error");
+            return -1;
+        }else
+			printf("dir created OK:%s\n",recvpath);
+    }	
+    strcat(recvpath,filename);
+	dprintf(sfd,"@. [verify]: OK.\n");
+
+	//验证发送方文件是否打开成功
+	if((n = read(sfd,sizebuf,64)) < 0){
+		perror("read error");
+		printf("\n");
+		return -1;
+	}
+	sizebuf[n] = '\0';
+	if(strstr(sizebuf,"$openerr$")){
+		printf("error: sender failed to open file.\n");
+		return -1;
+	}
+
+    FILE* precvfile = fopen(recvpath,"w");
+	if(precvfile == NULL){
+		dprintf(sfd,"@. [verify]: SS.\n");
+		perror("fopen error");
+		fclose(precvfile);
+		printf("\n");
+		return -1;
+	}
+
+	int r = 0;
+	int w = 0;
+	int wsum = 0;
+	char filebuf[1000] = {0};
+	char realmsg[1000] = {0};
+	int lenreal = 0;
+	//因为read()返回次数不确定，所以循环次数不可以与发送次数一致
+	while(1){
+		//通知发送方可以发送了
+		dprintf(sfd,"@. [verify]: CC.\n");
+
+		r = read(sfd,filebuf,1000); //首先进入等待状态,阻塞接收
+		if(r < 0){//格式为@. realmsg\n
+			dprintf(sfd,"@. [verify]: SS.\n");
+			perror("read error");
+			fclose(precvfile);
+			precvfile = NULL;
+			printf("\n");
+			return -1;
+		}
+		filebuf[r] = '\0';
+		//一共接收r个有效字符,
+		//格式为@. realmsg\n
+		strcpy(realmsg,filebuf+3);
+		//绝对不能用sscanf(),因为它遇空格或者换行就会停止
+
+		if(strstr(realmsg,"$readerr$")){			
+			printf("sender failed to send file content.\n\n");
+			fclose(precvfile);
+			precvfile = NULL;
+			return -1;
+		}
+		lenreal = strlen(realmsg); //包含\n
+		realmsg[lenreal-1] = '\0'; // \n替换为\0
+
+		if((w = fwrite(realmsg,1,strlen(realmsg),precvfile)) < 0){
+			dprintf(sfd,"@. [verify]: SS.\n");
+			ferror(precvfile);
+			fclose(precvfile);
+			precvfile = NULL;
+			printf("\n");
+			return -1;
+		}
+
+		wsum += w;
+		printf("recved: %d bytes, %%%.2lf...\n",w,wsum*100.0/size);
+		if(wsum >= size) break;
+	}
+
+	fclose(precvfile);
+	precvfile = NULL;
+	printf("file size=%d recved successful.\n\n",size);
 
 	
 	return 0;
@@ -891,3 +1017,5 @@ int pconnect(char* ip){
 
 	return sfd;
 }
+
+
