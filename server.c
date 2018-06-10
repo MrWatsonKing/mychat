@@ -11,7 +11,8 @@ void* pexit(void* null){
 		fgets(cmd,32,stdin); //fgets()获取的字符串包含\n
 		if(!strcmp(cmd,":online\n"))
 			list_show();
-		if(!strcmp(cmd,":exit\n")){			
+		if(!strcmp(cmd,":exit\n")){
+			list_destroy();			
 			free(pdb);			
 			pdb = NULL;
 			exit(0);
@@ -224,9 +225,11 @@ int ptalk_transfer(int cfd,char* myname){
 	char msg[1000] = {0};
 	char filepath[256] = {0};
 	int tcfd = 0;
-	char toname[32] = {0};	
-    int len = 0;
-	ssize_t n = 0;	
+	char toname[32] = {0};
+	char tmptoname[32] = {0};	
+    int lento = 0;
+	ssize_t n = 0;
+	int online = 0;	
     
 	while((n = read(cfd,msg,1000)) > 0){
         //msg自带\n,尤其是文件内容,不能删掉
@@ -251,9 +254,10 @@ int ptalk_transfer(int cfd,char* myname){
 		//所有消息格式都为@toname realmsg\n
 		//组织成新的格式为fromname:@toname realmsg\n
 		sscanf(msg,"@%s ",toname);
-		len = (int)strlen(toname);
+		lento = (int)strlen(toname);
 
-		if(len == 1 && toname[0]=='.') {//群发消息 文件上传下载请求必然是以群发形式
+		//群发消息 文件上传下载
+		if(lento == 1 && toname[0]=='.') {
 			if(strstr(msg,":upload")){
 				sscanf(msg,"%*[^$]$%s",filepath);
 				strtok(filepath,"\n");
@@ -266,13 +270,24 @@ int ptalk_transfer(int cfd,char* myname){
 			}
 			else 
 				pgroupmsg(cfd,msg,myname); //群发消息 包含@toname
-		}else{//单发
-			//进行目标用户在线状态验证
-			if((tcfd = list_getcfd(toname)) == -1){
-				dprintf(cfd,"server:@. [verify]: NOL.\n");
-				continue;			
+		//单发消息 文件定向传送
+		}else{
+			//如果本次目标用户名同上次不一样 就重新设定在线状态
+			if(strcmp(toname,tmptoname)){
+				online = 0;
+				strcpy(tmptoname,toname);
 			}
-			dprintf(cfd,"server:@. [verify]: OK.\n");
+			//进行目标用户在线状态验证
+			if(online == 0){
+				//printf("checking @toname online status:\n");
+				if((tcfd = list_getcfd(toname)) == -1){
+					online = 0;
+					dprintf(cfd,"server:@. [verify]: NOL.\n");
+					continue;			
+				}
+				dprintf(cfd,"server:@. [verify]: OL.\n");
+				online = 1;
+			}				
 			//验证通过之后进行消息转发	
 			dprintf(tcfd,"%s:%s",myname,msg); //包含@toname
 	//		printf("transfer realmsg len=%lu.\n",strlen(msg)-len-2);

@@ -301,10 +301,12 @@ void* thread_send(void* psfd){
 	time_t t = 0;
 	struct tm *today = NULL;
 	int sfd = *(int*)psfd;
+	int online = 0;
 	char msg[1000] = {0};
 	char tmpmsg[1000] = {0};
 	char filepath[100] = {0};
 	char toname[32] = {0};
+	char tmptoname[32] = {0};
 	char atme[32] = {0};
 	strcat(atme,"@");
 	strcat(atme,myname);
@@ -322,16 +324,22 @@ void* thread_send(void* psfd){
         }
 		
 		//规定群发@.之后，所有消息都带有@<toname>
-		if(msg[0] == '@'){//如果指定接收人，则修改toname为给定值;
+		if(msg[0] == '@'){ //如果指定接收人，则修改toname为给定值;
 			//检查是否为文件上传下载请求
 			if(strstr(msg,":upload $") || strstr(msg,":download $")){
 				printf("@<toname> for :upload or :download is illegal.\n");
 				continue;
 			}
-				
+			
+			//如果本次目标用户名同上次不一样 就重新设定在线状态
+			sscanf(msg,"@%s",toname);
+			if(strcmp(toname,tmptoname)){
+				online = 0;
+				strcpy(tmptoname,toname);
+			}
+
 			//验证文件命令合规性
-			if(strstr(msg,":file")){
-				sscanf(msg,"@%s",toname);
+			if(strstr(msg,":file")){				
 				if(strlen(toname) == 1 && toname[0] == '.'){
 					printf("can not broadcast file by @.\n");
 					continue;
@@ -356,16 +364,19 @@ void* thread_send(void* psfd){
 			//将合规的文件命令或消息命令发送到服务器
 			dprintf(sfd,"%s",msg); //msg 包含@toname 和\n
 
-			//服务器验证toname是否存在,存在返回[verify]: OK. 不存在返回[verify]: NOL.
-			pthread_mutex_lock(&mutex1);
-			pthread_cond_wait(&cond,&mutex1); 
-			pthread_mutex_unlock(&mutex1);
-			//任何目标用户不在线的消息或文件命令,都不会被转发 且不生成聊天记录
-			if(ncond != 1) continue;
-			ncond = 0;
-
+			if(online == 0){
+				//printf("checking @toname online status:\n");
+				//服务器验证toname是否存在,存在返回[verify]: OK. 不存在返回[verify]: NOL.
+				pthread_mutex_lock(&mutex1);
+				pthread_cond_wait(&cond,&mutex1); 
+				pthread_mutex_unlock(&mutex1);
+				//任何目标用户不在线的消息或文件命令,都不会被转发 且不生成聊天记录
+				if(ncond != 3) continue;
+				online = 1;
+				ncond = 0;
+			}
 			if(strstr(msg,":file"))
-				if(pfile_send(sfd,filepath,toname) == -1) continue;
+				if(pfile_send(sfd,filepath,toname) == -1) continue;			
 			
 		//不带@<toname>,补加@. 
 		}else{
@@ -429,7 +440,7 @@ void* thread_recv(void* psfd){
     ssize_t n = 0;
 
 	while(1){
-		if((n = read(sfd,msgbuf,1000)) <= 0){//若服务器退出，则退出
+		if((n = read(sfd,msgbuf,1000)) <= 0){ //若服务器退出，则退出
 			perror("read");
 			return (void*)-1;
 		}		
@@ -487,24 +498,28 @@ void* thread_recv(void* psfd){
                 ncond = 1;
                 pthread_cond_signal(&cond);
             }
-            if(!strcmp(realmsg,"[verify]: NO.\n")){
+            else if(!strcmp(realmsg,"[verify]: NO.\n")){
                 ncond = 0;
                 pthread_cond_signal(&cond);
             }
-            if(!strcmp(realmsg,"[verify]: CC.\n")){
+            else if(!strcmp(realmsg,"[verify]: CC.\n")){
                 ncond = 2;
                 pthread_cond_signal(&cond);
             }
-            if(!strcmp(realmsg,"[verify]: SS.\n")){
+            else if(!strcmp(realmsg,"[verify]: SS.\n")){
                 ncond = -1;
                 pthread_cond_signal(&cond);
             }
-            if(!strcmp(realmsg,"[verify]: NOL.\n")){
+			else if(!strcmp(realmsg,"[verify]: OL.\n")){
+                ncond = 3;
+                pthread_cond_signal(&cond);
+            }
+            else if(!strcmp(realmsg,"[verify]: NOL.\n")){
 				printf("@toname is not online!\n");
                 ncond = -1;
                 pthread_cond_signal(&cond);
             }
-            if(!strcmp(realmsg,"[verify]: QUIT.\n")){
+            else if(!strcmp(realmsg,"[verify]: QUIT.\n")){
                 printf("\n[msg]: A relogin action pushed you offline.\n"
                        "You may try relogin,or change password by command:chpass\n\n"
 			           );
@@ -512,6 +527,7 @@ void* thread_recv(void* psfd){
 				//所以客户端强制退出以后，留下的客户线程，必须服务器自行清理
 				exit(-1);
 			}
+			//printf("%s",realmsg);
         }
         memset(msgbuf,0,1000);
         memset(realmsg,0,1000);
@@ -537,7 +553,7 @@ char* ppath_parse(char* filepath,char* path){
 		filename = filepath;
 		strcpy(childpath,cwd);
 	}
-	printf("path=%s name=%s\n",childpath,filename);
+	//printf("path=%s name=%s\n",childpath,filename);
 
 	//解析真实路径
 	//1 ~ home目录起头
@@ -639,11 +655,12 @@ int pfile_send(int sfd,char* filepath,char* toname){
 	int wsum = 0;
 	char filebuf[900] = {0}; //不超过服务器接收范围
 	while(1){
+		//经过信号量通知,才能开始发送
 		pthread_mutex_lock(&mutex1);
-		pthread_cond_wait(&cond,&mutex1); //经过信号量通知,才能开始发送
+		pthread_cond_wait(&cond,&mutex1); 
 		pthread_mutex_unlock(&mutex1);
 		if(ncond != 2){
-			printf("error:file sending process failed.\n\n");
+			printf("error: got no [verify] CC. sending stopped.\n\n");
 			fclose(psendfile);
 			psendfile = NULL;
 			return -1;
@@ -684,7 +701,7 @@ int pfile_recv(int sfd,char* filepath,char* fromname,char* toname){
 		filename = 1 + strrchr(filepath,'/');
 	else
 		filename = filepath;
-	printf("name=%s\n",filename);
+	//printf("name=%s\n",filename);
 
 	//因为不允许进行文件群发,所以所有的文件转发都是定向单发
 
@@ -725,9 +742,15 @@ int pfile_recv(int sfd,char* filepath,char* fromname,char* toname){
     }
 	
     strcat(recvpath,filename);
+
+	//注意:此处文件接收方向发送方发送验证时,如果此前没有验证过fromname是否在线,
+	//则服务器也会对fromname进行在线验证,就会受到server:@. [verify]: OL.\n的消息
+	//但由于文件接收函数阻塞了thread_recv(),所以接收线程接收不到验证消息
+	//这样验证消息就进入到了pfile_recv()当中,就成为了噪音!必须对此验证消息进行排除.
+	//由于发送方必然在线,所以收到的消息一定是server:@. [verify]: OL.\n
     dprintf(sfd,"@%s [verify]: OK.\n",fromname);
 
-	//验证发送方文件是否打开成功
+	//验证发送方文件是否打开成功 $openerr$ 或 fileopen OK.
 	if((n = read(sfd,sizebuf,64)) < 0){
 		perror("read error");
 		printf("\n");
@@ -738,7 +761,22 @@ int pfile_recv(int sfd,char* filepath,char* fromname,char* toname){
 		printf("error: sender failed to open file.\n");
 		return -1;
 	}
+	//如果收到的是服务器的在线验证消息,则继续接收发送方的文件打开消息
+	if(!strcmp(sizebuf,"server:@. [verify]: OL.\n")){
+		if((n = read(sfd,sizebuf,64)) < 0){
+			perror("read error");
+			printf("\n");
+			return -1;
+		}
+		sizebuf[n] = '\0';
+		if(strstr(sizebuf,"$openerr$")){
+			printf("error: sender failed to open file.\n");
+			return -1;
+		}
+	}
 
+	//此时发送方已经进入文件发送循环 等候接收方发送 [verify]: CC.消息
+	//确认就会开始发送 否则发送方退出文件发送循环
     FILE* precvfile = fopen(recvpath,"w");
 	if(precvfile == NULL){
 		dprintf(sfd,"@%s [verify]: SS.\n",fromname);
@@ -762,7 +800,7 @@ int pfile_recv(int sfd,char* filepath,char* fromname,char* toname){
 		dprintf(sfd,"@%s [verify]: CC.\n",fromname);
 
 		r = read(sfd,filebuf,1000); //首先进入等待状态,阻塞接收
-		if(r < 0){//格式为fromname:@toname realmsg\n
+		if(r < 0){ //格式为fromname:@toname realmsg\n
 			dprintf(sfd,"@%s [verify]: SS.\n",fromname);
 			perror("read error");
 			fclose(precvfile);
@@ -974,7 +1012,7 @@ int pfile_download(int sfd,char* filepath){
 		dprintf(sfd,"@. [verify]: CC.\n");
 
 		r = read(sfd,filebuf,1000); //首先进入等待状态,阻塞接收
-		if(r < 0){//格式为@. realmsg\n
+		if(r < 0){ //格式为@. realmsg\n
 			dprintf(sfd,"@. [verify]: SS.\n");
 			perror("read error");
 			fclose(precvfile);
