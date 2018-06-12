@@ -12,8 +12,6 @@ void* pexit(void* null){
 			list_show();
 		if(!strcmp(cmd,":exit\n")){
 			list_destroy();			
-			free(pdb);			
-			pdb = NULL;
 			exit(0);
 		}							
 	}
