@@ -3,7 +3,6 @@
 extern int nthreads;
 extern list users;
 extern sqlite3* pdb;
-extern const char* dbname;
 
 void* pexit(void* null){
 	char cmd[32] = {0};
@@ -73,7 +72,7 @@ int plogin(int cfd,char* myname){
 	buf[n] = '\0';
 	sscanf(buf,"%s %s\n",username,password);
     
-	switch(db_check(username,password,dbname,pdb)){
+	switch(db_check(username,password)){
 		case SQL_NONE:
 			dprintf(cfd,"username or password wrong!\n");
 			break;
@@ -137,10 +136,10 @@ int pregister(int cfd){
 		return -1;
 	}
 
-	switch(db_check(username,password,dbname,pdb)){
+	switch(db_check(username,password)){
 		case SQL_NONE...SQL_FOUND:
-			if(db_insert(username,password,dbname,pdb) == 0){
-				if(db_check(username,password,dbname,pdb) == SQL_FOUND){
+			if(db_insert(username,password) == 0){
+				if(db_check(username,password) == SQL_FOUND){
 					dprintf(cfd,"user registered successfully!\n");
 //					printf("user registered successfully!\n");
 				}
@@ -350,8 +349,7 @@ void pfile_upload(int cfd,char* filepath){
     char cwd[100] = {0};
     char recvpath[256] = {0};
     getcwd(cwd,100);
-    strcat(recvpath,cwd);
-    strcat(recvpath,"/shared_files/");
+	sprintf(recvpath,"%s%s",cwd,"/shared_files/");
 
     if(access(recvpath,R_OK|W_OK|X_OK) == -1){
         if(mkdir(recvpath,0777) == -1){
@@ -455,9 +453,7 @@ void pfile_download(int cfd,char* filepath){
 	char path[256] = {0};
 	char cwd[100] = {0};
 	getcwd(cwd,100);
-	strcat(path,cwd);
-	strcat(path,"/shared_files/");
-	strcat(path,filename);
+	sprintf(path,"%s%s%s",cwd,"/shared_files/",filename);
 
 	//获取并发送文件大小
 	int size = 0;

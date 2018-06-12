@@ -249,10 +249,9 @@ int ptalk(int sfd){
 	sprintf(date,"%02d%02d%02d",today->tm_year+1900,today->tm_mon+1,today->tm_mday);
 	
     char logpath[256] = {0};
-	getcwd(logpath,256);
-	strcat(logpath,"/");
-    strcat(logpath,myname);
-    strcat(logpath,"_log/");
+	char cwd[256] = {0};
+	getcwd(cwd,256);
+	sprintf(logpath,"%s%s%s%s",cwd,"/",myname,"_log/");
 
     if(access(logpath,R_OK|W_OK|X_OK) == -1){
         if(mkdir(logpath,0777) == -1){
@@ -263,10 +262,9 @@ int ptalk(int sfd){
 			printf("dir created OK:%s\n",logpath);
     }
 	
-	strcat(logpath,myname);
-	strcat(logpath,"_chatlog_");
-	strcat(logpath,date);
-	strcat(logpath,".txt");
+	char logname[64] = {0};
+	sprintf(logname,"%s%s%s%s",myname,"_chatlog_",date,".txt");
+	strcat(logpath,logname);
 
 	pfile = fopen(logpath,"a");
 	if(pfile == NULL)
@@ -308,8 +306,7 @@ void* thread_send(void* psfd){
 	char toname[32] = {0};
 	char tmptoname[32] = {0};
 	char atme[32] = {0};
-	strcat(atme,"@");
-	strcat(atme,myname);
+	sprintf(atme,"%s%s","@",myname);
 
 	while(1){
 		fgets(msg,1000,stdin); //包含\n\0
@@ -555,13 +552,12 @@ char* ppath_parse(char* filepath,char* path){
 	}
 	//printf("path=%s name=%s\n",childpath,filename);
 
-	//解析真实路径
+	//解析真实路径 path为外部传入的空文件名
 	//1 ~ home目录起头
 	if(childpath[0] == '~'){
 		//1.1 有子目录
 		if(strlen(childpath) >1){
-			strcpy(path,getenv("HOME"));
-			strcat(path,strtok(childpath,"~"));
+			sprintf(path,"%s%s",getenv("HOME"),strtok(childpath,"~"));
 			//strtok()一般情况下,将出现的字符全部设置为\0，
 			//然后返回剩下的字符串中不为\0的首地址
 		}else
@@ -727,10 +723,7 @@ int pfile_recv(int sfd,char* filepath,char* fromname,char* toname){
     char cwd[100] = {0};
     char recvpath[256] = {0};
     getcwd(cwd,100);
-    strcat(recvpath,cwd);
-    strcat(recvpath,"/");
-    strcat(recvpath,myname);
-    strcat(recvpath,"_file/");
+	sprintf(recvpath,"%s%s%s%s",cwd,"/",myname,"_file/");
 
     if(access(recvpath,R_OK|W_OK|X_OK) == -1){
         if(mkdir(recvpath,0777) == -1){
@@ -963,10 +956,7 @@ int pfile_download(int sfd,char* filepath){
     char cwd[100] = {0};
     char recvpath[256] = {0};
     getcwd(cwd,100);
-    strcat(recvpath,cwd);
-	strcat(recvpath,"/");
-	strcat(recvpath,myname);
-    strcat(recvpath,"_file/");
+	sprintf(recvpath,"%s%s%s%s",cwd,"/",myname,"_file/");
 
     if(access(recvpath,R_OK|W_OK|X_OK) == -1){
         if(mkdir(recvpath,0777) == -1){

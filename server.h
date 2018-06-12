@@ -62,10 +62,10 @@ int list_exit(int cfd);
 int list_delete(int cfd);
 int list_destroy();
 
-int db_open(const char* dbname,sqlite3* pdb);
-int db_check(const char* username,const char* password,const char* dbname,sqlite3* pdb);
-int db_insert(const char* username,const char* password,const char* dbname,sqlite3* pdb);
-int db_delete(const char* username,const char* dbname,sqlite3* pdb);
+int db_open();
+int db_check(const char* username,const char* password);
+int db_insert(const char* username,const char* password);
+int db_delete(const char* username);
 //static int callback(void* data,int argc,char** argv,char** azcolname);
 
 #endif//_SERVER_H

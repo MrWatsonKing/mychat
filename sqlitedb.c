@@ -1,6 +1,8 @@
 #include "server.h" // sqlitedb.c
+extern const char *dbname;
+extern sqlite3 *pdb;
 
-int db_open(const char* dbname,sqlite3* pdb){
+int db_open(){
 	char* sql = NULL;
 	char* zerrmsg = NULL;
 
@@ -27,7 +29,7 @@ int db_open(const char* dbname,sqlite3* pdb){
 	return 0;
 }	
 
-int db_check(const char* username,const char* password,const char* dbname,sqlite3* pdb){
+int db_check(const char* username,const char* password){
 	char* zerrmsg = NULL;
 	char sql[100] = {0};
 	char** pResult = NULL;
@@ -57,7 +59,7 @@ int db_check(const char* username,const char* password,const char* dbname,sqlite
 	return SQL_FOUND;
 }
 
-int db_insert(const char* username,const char* password,const char* dbname,sqlite3* pdb){
+int db_insert(const char* username,const char* password){
 	char* zerrmsg = NULL;
 	char sql[100] = {0};
 
@@ -81,7 +83,7 @@ int db_insert(const char* username,const char* password,const char* dbname,sqlit
 	return 0;
 }
 
-int db_delete(const char* username,const char* dbname,sqlite3* pdb){
+int db_delete(const char* username){
 	char* zerrmsg = NULL;
 	char sql[100] = {0};
 	
