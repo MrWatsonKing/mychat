@@ -1,6 +1,6 @@
 #include "server.h" // sqlitedb.c
-extern const char *dbname;
-extern sqlite3 *pdb;
+extern const char* dbname;
+extern sqlite3* pdb;
 
 int db_open(){
 	char* sql = NULL;

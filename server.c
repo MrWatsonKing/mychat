@@ -8,8 +8,15 @@ void* pexit(void* null){
 	char cmd[32] = {0};
 	while(1){
 		fgets(cmd,32,stdin); //fgets()获取的字符串包含\n
-		if(!strcmp(cmd,":online\n"))
-			list_show();
+		if(!strcmp(cmd,":online\n")){
+			int cnt = list_count("chaters");
+			printf("chaters online: %d\n",cnt);
+			if(cnt>0){
+				char names[32*cnt];
+				printf("%s [over]\n\n",list_names(cnt,names));
+			}else
+				printf("\n");			
+		}			
 		if(!strcmp(cmd,":exit\n")){
 			list_destroy();			
 			exit(0);
@@ -156,58 +163,38 @@ int pregister(int cfd){
 }
 
 int pcheckon(int cfd){
-    //获取最新时间
-    time_t t = 0;
-    struct tm *today = NULL;
-    t = time(NULL);
-    today = localtime(&t);
+        
+    int cnt = list_count("chaters");
+	//临近的代码区间内，尽量将通信语句一次性发送，因为发送和接收的次数实际上并不是匹配的
+	//连续快速的发送，可能会被接收端视为同一次发送，从而不能正常解析单词发送的通信语句
+	if(cnt > 0)
+	    dprintf(cfd, "server:@. chaters online: %d\n",cnt);
+    else{
+		dprintf(cfd, "server:@. chaters online: %d\n\n",cnt);
+		return 0; 
+	}		   
     
-    int chaters = list_count("chaters");
-    dprintf(cfd, "server:@. chaters online: %d\n",chaters);
-    if(chaters == 0){
-        dprintf(cfd,"server:@. [%02d:%02d:%02d]\n",today->tm_hour,today->tm_min,today->tm_sec);
-        return 0;
-    }
+    char names[32*cnt];
+    list_names(cnt,names);
     
-    char* userlist= (char*)malloc(32*chaters);
-    if(userlist == NULL){
-        dprintf(cfd,"server:@. failed to get userlist.\n");
-        //printf("failed to malloc for userlist.\n");
-        return -1;
-    }
-    userlist[0] = '\0';
+	//分段发送，是为了让同样的代码既可以和command:online对接，也可以和chatroom中:online对接
+    int ncuts = strlen(names)/900+1;
+    char temp[1000] = {0};
 
-    int i = 0;
-    node* pnode = NULL;
-    int lensum = 0;	
-    //如果plist->head.pnext == &plist->tail,即plist当中没有有效成员的话,就不会进行循环
-    for(pnode = users.head.pnext; pnode != &users.tail; pnode = pnode->pnext){
-		if(i<chaters){
-			strcat(userlist,pnode->username);
-			strcat(userlist," ");
-			lensum += strlen(pnode->username)+1;
-			i++;
+	//多次发送之间，都进行了字符串拷贝操作，造成了一定的时间间隔，
+	//才能使得客户端的read()函数能够正确的解析每一次发送的数据，而不是一次性获取多条数据
+    for(int i=0;i<ncuts;i++){
+        if(i < ncuts -1){	//不是最后一次
+            memcpy(temp,names+i*900,900);
+            temp[900] = '\0';
+			dprintf(cfd,"server:@. %s",temp);
+        }else{	//最后一次
+			strcpy(temp, names+i*900);
+			dprintf(cfd,"server:@. %s [over]\n\n",temp);
 		}
     }
-    userlist[lensum] = '\0';
     
-    int ncuts = lensum/900+1;
-    char temp[1000] = {0};
-    for(int i=0;i<ncuts;i++){
-        if(i < ncuts -1){
-            memcpy(temp,userlist+i*900,900);
-            temp[900] = '\0';
-        }else
-            strcpy(temp, userlist+i*900);
-        
-        dprintf(cfd,"server:@. %s",temp);
-    }
-    dprintf(cfd,"server:@. [%02d:%02d:%02d]\n",today->tm_hour,today->tm_min,today->tm_sec);
-    
-    free(userlist);
-    userlist = NULL;
-	
-	return chaters;
+	return cnt;
 }
 
 int ptalk_transfer(int cfd,char* myname){

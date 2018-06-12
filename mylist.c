@@ -1,4 +1,5 @@
 #include "server.h" // mylist.c
+
 extern list users;
 extern int nthreads;
 
@@ -14,12 +15,17 @@ int list_init(){
 	return 0;
 }
 
-int list_count(const char* what){
-	
+int list_count(const char* what){	
+
+	if(strcmp(what,"threads") && strcmp(what,"logins") && strcmp(what,"chaters")){
+		printf("list_count:\"threads\",\"logins\",\"chaters\"; \"%s\" is not recognized.\n",what);
+		return 0;
+	}
+
 	int cnt = 0;
 	node* pnode = NULL;
 	for(pnode = users.head.pnext; pnode != &users.tail; pnode = pnode->pnext)
-		if(pnode != &users.tail){
+		if(pnode != &users.tail){			
 			if(!strcmp(what,"threads"))
 				cnt++;
 			else if(!strcmp(what,"logins") && pnode->logstatus == 1)
@@ -31,49 +37,33 @@ int list_count(const char* what){
 	return cnt;
 }
 
-int list_show(){
+char* list_names(int cnt,char* names){
+	//names为外部传入的char数组，长度为cnt*32
 	
-	//获取最新时间
-    time_t t = 0;
-    struct tm *today = NULL;
-    t = time(NULL);
-    today = localtime(&t);
-    
-    int chaters = list_count("chaters");
-	printf("chaters online: %d\n",chaters);
+	if(cnt == 0){
+		printf("chaters online: 0\n\n");
+		return NULL;
+	}
 
-    if(chaters == 0){
-        printf("[%02d:%02d:%02d]\n\n",today->tm_hour,today->tm_min,today->tm_sec);
-        return 0;
-    }
-    
-    char* userlist= (char*)malloc(32*chaters);
-    if(userlist == NULL){        
-        printf("failed to malloc for userlist.\n");
-        return -1;
-    }
-    userlist[0] = '\0';
+	if(names == NULL){
+		printf("names[] should be malloced 32*cnt bytes before use.\n");
+		return NULL;
+	}
 
-    int i = 0;
-    int lensum = 0;	
-	node* pnode = NULL;    
+	int i = 0;
+	node* pnode = NULL;  
+	names[0] = '\0';
     //如果plist->head.pnext == &plist->tail,即plist当中没有有效成员的话,就不会进行循环
     for(pnode = users.head.pnext; pnode != &users.tail; pnode = pnode->pnext){
-		if(i<chaters){
-			strcat(userlist,pnode->username);
-			strcat(userlist," ");
-			lensum += strlen(pnode->username)+1;
+		//只对list当中前cnt个操作，在操作期间通过append()方式新增的用户，不计入其中
+		if(i<cnt){
+			strcat(names,pnode->username);
+			strcat(names," ");
 			i++;
 		}
     }
-    userlist[lensum] = '\0';    
-    printf("%s\n",userlist);
-    printf("[%02d:%02d:%02d]\n\n",today->tm_hour,today->tm_min,today->tm_sec);
-    
-    free(userlist);
-    userlist = NULL;
-	
-	return chaters;
+
+	return names;	
 }
 
 int list_getcfd(const char* username){

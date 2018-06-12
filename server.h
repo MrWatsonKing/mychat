@@ -33,6 +33,11 @@ typedef struct list{
 	node tail;
 }list;
 
+typedef struct listshow{
+	int chaters;
+	char userlist;
+}listshow;
+
 void* pexit(void*);
 void* pnewthread(void* pcfd);
 int plogin(int cfd,char* myname);
@@ -47,7 +52,7 @@ int plisten(int port,int backlog);
 
 int list_init();
 int list_count();
-int list_show();
+char* list_names(int cnt,char* names);
 int list_getcfd(const char* username);
 int* list_getcfdarr(int** pcfdarr,int* pcnt);
 char* list_getname(int cfd);

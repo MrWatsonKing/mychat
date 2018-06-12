@@ -206,27 +206,35 @@ int pregister(int sfd){
 int pcheckon(int sfd){
 
     int cnt = 0;
+	char sizebuf[64] = {0};
     char msgbuf[1000] = {0};
 
     ssize_t n = 0;
-    if((n = read(sfd,msgbuf,1000)) <= 0)
-        printf("failed to get size of userlist.\n");
-    msgbuf[n] = '\0';
-    printf("%s",msgbuf+10);
-
-    sscanf(msgbuf,"server:@. members online: %d\n",&cnt);
-
+    if((n = read(sfd,sizebuf,64)) <= 0){
+		perror("read error");
+		printf("failed to get size of userlist.\n");
+		return -1;
+	}
+        
+    sizebuf[n] = '\0';
+    printf("%s",sizebuf+10);	//消息自带\n
+    sscanf(sizebuf,"server:@. chaters online: %d\n",&cnt);
+	if(cnt == 0)
+		return 0;	
+		
     while(1){
-        if((n = read(sfd,msgbuf,1000)) <= 0)
-            printf("failed to get size of userlist.\n");
+        if((n = read(sfd,msgbuf,1000)) <= 0){
+			perror("read error");
+			printf("failed to get size of userlist.\n");
+			break;
+		}            
         msgbuf[n] = '\0';
-        printf("%s",msgbuf+10);
-        if(strstr(msgbuf,"["))
-            break;
+	    printf("%s",msgbuf+10);
+		if(strstr(msgbuf,"[over]"))  //消息自带\n\n
+			break;
     }
 
-    printf("\n");
-	return cnt;
+	return cnt;    
 }
 
 int ptalk(int sfd){
@@ -463,8 +471,6 @@ void* thread_recv(void* psfd){
 						if(pfile_download(sfd,filepath) == -1) continue;
 					}else{
 						printf("%s",realmsg);
-						if(strstr(msgbuf,"["))
-							printf("\n");
 						continue;
 					}
                 }else
