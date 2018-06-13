@@ -12,6 +12,7 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 #include <sqlite3.h>
+#include <dirent.h>
 
 enum{SQL_ERROR = -1,SQL_NONE,SQL_FOUND};
 typedef struct sockaddr_in SA4;
@@ -44,6 +45,7 @@ int plogin(int cfd,char* myname);
 int plogout(int cfd,char* myname);
 int pregister(int cfd);
 int pcheckon(int cfd);
+int pcheckfiles(int cfd);
 int ptalk_transfer(int cfd,char* myname);
 void pgroupmsg(int mycfd,char* msg,char* myname);
 void pfile_upload(int cfd,char* filepath);

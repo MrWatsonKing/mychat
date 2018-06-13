@@ -28,7 +28,7 @@ void phelp(void){
            "\tuse format \"@<name> :file $<filepath>\" to send a file to <name>(critical) privately.\n"
            "\tfiles should not be broadcasted, but you can share files by uploading them to server.\n"
            "\tinput \":upload $<filepath>\" to upload a file to server,\":download $<filename>\" to download a file from server,\n"
-           "\tand \":checkfiles\" to check files on server.\n\n"
+           "\tand \":shares\" to check files on server.\n\n"
            );  
 }
 
@@ -237,6 +237,40 @@ int pcheckon(int sfd){
 	return cnt;    
 }
 
+int pcheckfiles(int sfd){
+
+	printf("\n");
+
+	ssize_t n = 0;
+	char verify[256] = {0};	
+	if((n = read(sfd,verify,256)) <= 0){
+		perror("read error");
+		printf("failed to get online filelist from server.\n\n");
+		return -1;
+	}
+	verify[n] = '\0';
+	if(strstr(verify,"[verify]: NO")){
+		printf("no shared files online.\n\n");
+		return -1;
+	}
+
+	char listbuf[1000] = {0};
+	while(1){
+		if((n = read(sfd,listbuf,256)) <= 0){
+			perror("read error");
+			printf("failed to get online filelist from server.\n");
+			return -1;
+		}
+		listbuf[n] = '\0';
+		printf("%s",listbuf+10);
+		
+		if(strstr(listbuf,"[over]"))
+			break;
+	}
+
+	return 0;
+}
+
 int ptalk(int sfd){
 
     char reply[128] = {0};
@@ -323,10 +357,6 @@ void* thread_send(void* psfd){
 			continue;
 		if(!strcmp(msg,"\n") || !strcmp(msg," \n"))//空白消息,只包含\n字符
 			continue;
-        if(!strcmp(msg,":online\n")){
-            dprintf(sfd,"@. %s",msg);
-            continue;
-        }
 		
 		//规定群发@.之后，所有消息都带有@<toname>
 		if(msg[0] == '@'){ //如果指定接收人，则修改toname为给定值;
@@ -387,6 +417,14 @@ void* thread_send(void* psfd){
 		}else{
 			if(strstr(msg,":file")){ //不允许进行文件群发
 				printf("@toname should be designated.\n");
+				continue;
+			}
+			if(!strcmp(msg,":online\n")){
+            	dprintf(sfd,"@. %s",msg);
+            	continue;
+       		}
+			if(!strcmp(msg,":shares\n")){ //不允许进行文件群发
+				dprintf(sfd,"@. %s",msg);
 				continue;
 			}
 

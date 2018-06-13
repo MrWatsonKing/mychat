@@ -22,6 +22,7 @@ int plogin(int sfd);
 int plogout(int sfd);
 int pregister(int sfd);
 int pcheckon(int sfd);
+int pcheckfiles(int sfd);
 int ptalk(int sfd);
 int ptalk(int sfd);
 void* thread_send(void* psfd);

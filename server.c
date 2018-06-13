@@ -1,4 +1,4 @@
-#include "server.h"////////////////// server.c
+#include "server.h" ////////////////// server.c
 
 extern int nthreads;
 extern list users;
@@ -16,8 +16,11 @@ void* pexit(void* null){
 				printf("%s [over]\n\n",list_names(cnt,names));
 			}else
 				printf("\n");			
-		}			
-		if(!strcmp(cmd,":exit\n")){
+		}
+		else if(!strcmp(cmd,":shares\n")){
+			pcheckfiles(0);
+		}				
+		else if(!strcmp(cmd,":exit\n")){
 			list_destroy();			
 			exit(0);
 		}							
@@ -54,6 +57,8 @@ void* pnewthread(void* pcfd){
             pcheckon(cfd);
         else if(!strcmp(cmd,"talk\n"))
             ptalk_transfer(cfd,myname);
+		else if(!strcmp(cmd,"shares\n"))
+			pcheckfiles(cfd);
         else if(!strcmp(cmd,"quit\n")){
 			list_exit(cfd);
 			break;
@@ -197,6 +202,83 @@ int pcheckon(int cfd){
 	return cnt;
 }
 
+int pcheckfiles(int cfd){
+
+	if(cfd <= 0)
+		printf("\n");
+
+	DIR* dir = NULL;
+	struct dirent* ent = NULL;
+	struct stat statbuf = {0};
+	char filepath[512] = {0};
+	char path[256] = {0};
+	char cwd[128] = {0};
+	sprintf(path,"%s%s",getcwd(cwd,128),"/shared_files");
+
+	if((dir = opendir(path)) == NULL){
+		perror("opendir error");
+		if(cfd > 0)
+			dprintf(cfd,"server:@. [verify]: NO.\n");
+		return -1;
+	}
+	if(cfd > 0)
+		dprintf(cfd,"server:@. [verify]: OK.\n");
+
+	long loc = telldir(dir);
+
+	int cnt = 0;
+	int lensum = 0;
+	while((ent = readdir(dir)) != NULL){
+        sprintf(filepath,"%s/%s",path,ent->d_name);
+        lstat(filepath,&statbuf);
+
+        if(ent->d_name[0] != '.' && !S_ISDIR(statbuf.st_mode)){
+			cnt++;
+			lensum += strlen(ent->d_name) + 1;	//含\0含空格
+		}            
+    }
+
+	seekdir(dir,loc);
+
+	int i = 0;
+	int len = 0;
+	char namebuf[1000] = {0};
+	while((ent = readdir(dir)) != NULL){
+        sprintf(filepath,"%s/%s",path,ent->d_name);
+        lstat(filepath,&statbuf);
+
+        if(ent->d_name[0] != '.' && !S_ISDIR(statbuf.st_mode)){
+			// cnt++;
+			strcat(namebuf,ent->d_name);
+			strcat(namebuf," ");
+			i++;
+			len += strlen(ent->d_name) + 1;	//含\0含空格
+
+			if(i == cnt || len >= 900){
+				if(cfd > 0)
+					dprintf(cfd,"server:@. %s\n",namebuf);
+				else
+					printf("%s\n",namebuf);
+				//输出一遍之后 清空缓冲区
+				memset(namebuf,0,1000);
+			}
+			
+			if(i == cnt) break;
+		}            
+    }
+
+	if(cfd > 0)
+		dprintf(cfd,"server:@. [over]\n\n");
+	else
+		printf("[over]\n\n");
+	
+    closedir(dir);
+    dir = NULL;
+    ent = NULL;
+
+	return 0;
+}
+
 int ptalk_transfer(int cfd,char* myname){
 	
 	if(!list_chatin(cfd))
@@ -222,7 +304,11 @@ int ptalk_transfer(int cfd,char* myname){
         if(!strcmp(msg,"@. :online\n")){
             pcheckon(cfd);
             continue;
-        }        
+        }
+		if(!strcmp(msg,"@. :shares\n")){
+            pcheckfiles(cfd);
+            continue;
+        }          
 		if(!strcmp(msg,"@. :exit\n")){
 			char exitmsg[100] = {0};
 			sprintf(exitmsg,"@. [msg]:left chatroom.\n");

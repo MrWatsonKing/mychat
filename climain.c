@@ -50,6 +50,17 @@ int main(int argc,char** argv){
             }
             plogin(sfd);
         }
+        else if(!strcmp(cmd,"shares\n")){
+            if(logstatus == 0){
+                printf("please login first!\n\n");
+                continue;
+            }
+            if(psendcmd(sfd) == -1){
+                printf("\n");
+                continue;
+            }
+            pcheckfiles(sfd);
+        }
         else if(!strcmp(cmd,"logout\n")){
             if(logstatus == 0){
                 printf("not login yet!\n\n");
