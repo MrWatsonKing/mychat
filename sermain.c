@@ -22,9 +22,9 @@ int main(int argc,char** argv){
 	if(db_open(dbname,pdb) == -1)
 		return -1;
 
-	//负责服务器退出的线程 在该线程中输入:exit\n，即可退出服务器
+	//负责服务器控制的线程 在该线程中输入:help\n，即可查看服务器控制命令提示
 	pthread_t tid0;
-	int ret = pthread_create(&tid0,0,pexit,NULL);
+	int ret = pthread_create(&tid0,0,pcontrol,NULL);
 	if(ret != 0){
 		printf("error %d: pthread_create failed.\n",ret);
 		return -1;

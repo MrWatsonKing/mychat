@@ -15,20 +15,23 @@ void phelp(void){
            "\tlogin\t\tset logstatus on;\n"
            "\tlogout\t\tset logstatus off;\n"
            "\tregister\tregister user ID;\n"
-           "\tonline\t\tcheck online list;\n"
+           "\tonline\t\tcheck online userlist;\n"
+		   "\tshares\t\tcheck online filelist;\n"
            "\ttalk\t\tenter talkroom;\n"
            "\tquit\t\tquit this client.\n\n"
            
-           "talking:\n"
-           "\tuse format \"@<name> <msg>\" to designate a single recver,and msgs will be sent privately.\n"
-           "\tif \"@<name>\" is not designated, msgs will be broatcasted to everyone by default.\n"
-           "\tinput \":exit\" to exit chatroom, and \":online\" to check chaters online.\n\n"
-           
-           "file sharing (in chatroom):\n"
-           "\tuse format \"@<name> :file $<filepath>\" to send a file to <name>(critical) privately.\n"
-           "\tfiles should not be broadcasted, but you can share files by uploading them to server.\n"
-           "\tinput \":upload $<filepath>\" to upload a file to server,\":download $<filename>\" to download a file from server,\n"
-           "\tand \":shares\" to check files on server.\n\n"
+		   "chatting:\n"
+		   "\t\":help\" to get helplist;\n"
+           "\t\"@<name> <msg>\" to send a private msg;\n"
+           "\t\"<msg>\" to broatcast a public msg;\n"
+           "\t\":exit\" to exit chatroom;\n"
+		   "\t\":online\" to check online userlist.\n"
+		   "\t\":shares\" to check online filelist.\n\n" 
+
+           "file sharing:\n"
+           "\t\"@<name> :file $<filepath>\" to send a file privately;\n"
+           "\t\":upload $<filepath>\" to upload a file to server;\n"
+		   "\t\":download $<filename>\" to download a file from server.\n\n"
            );  
 }
 
@@ -423,6 +426,10 @@ void* thread_send(void* psfd){
        		}
 			if(!strcmp(msg,":shares\n")){ //不允许进行文件群发
 				dprintf(sfd,"@. %s",msg);
+				continue;
+			}
+			if(!strcmp(msg,":help\n")){ //不允许进行文件群发
+				phelp();
 				continue;
 			}
 

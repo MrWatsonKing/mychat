@@ -4,11 +4,23 @@ extern int nthreads;
 extern list users;
 extern sqlite3* pdb;
 
-void* pexit(void* null){
+void phelp(void){
+	printf("commands:\n"
+		   "\t:online\t\tcheck online userlist;\n"
+           "\t:shares\t\tcheck online filelist;\n"
+           "\t:exit\t\tterminate the server.\n\n"
+           );  
+}
+
+void* pcontrol(void* null){
 	char cmd[32] = {0};
 	while(1){
-		fgets(cmd,32,stdin); //fgets()获取的字符串包含\n
-		if(!strcmp(cmd,":online\n")){
+		fgets(cmd,32,stdin); 
+		//fgets()获取的字符串包含\n
+		if(!strcmp(cmd,":help\n")){
+			phelp();
+		}	
+		else if(!strcmp(cmd,":online\n")){
 			int cnt = list_count("chaters");
 			printf("chaters online: %d\n",cnt);
 			if(cnt>0){

@@ -39,7 +39,8 @@ typedef struct listshow{
 	char userlist;
 }listshow;
 
-void* pexit(void*);
+void phelp(void);
+void* pcontrol(void*);
 void* pnewthread(void* pcfd);
 int plogin(int cfd,char* myname);
 int plogout(int cfd,char* myname);
