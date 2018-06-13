@@ -186,6 +186,7 @@ int pcheckon(int cfd){
     int ncuts = strlen(names)/900+1;
     char temp[1000] = {0};
 
+	sleep(0);
 	//多次发送之间，都进行了字符串拷贝操作，造成了一定的时间间隔，
 	//才能使得客户端的read()函数能够正确的解析每一次发送的数据，而不是一次性获取多条数据
     for(int i=0;i<ncuts;i++){
@@ -195,17 +196,15 @@ int pcheckon(int cfd){
 			dprintf(cfd,"server:@. %s",temp);
         }else{	//最后一次
 			strcpy(temp, names+i*900);
-			dprintf(cfd,"server:@. %s [over]\n\n",temp);
+			dprintf(cfd,"server:@. %s[over]\n\n",temp);
 		}
+		sleep(0);
     }
     
 	return cnt;
 }
 
 int pcheckfiles(int cfd){
-
-	if(cfd <= 0)
-		printf("\n");
 
 	DIR* dir = NULL;
 	struct dirent* ent = NULL;
@@ -227,14 +226,14 @@ int pcheckfiles(int cfd){
 	long loc = telldir(dir);
 
 	int cnt = 0;
-	int lensum = 0;
+	// int lensum = 0;
 	while((ent = readdir(dir)) != NULL){
         sprintf(filepath,"%s/%s",path,ent->d_name);
         lstat(filepath,&statbuf);
 
         if(ent->d_name[0] != '.' && !S_ISDIR(statbuf.st_mode)){
 			cnt++;
-			lensum += strlen(ent->d_name) + 1;	//含\0含空格
+			// lensum += strlen(ent->d_name) + 1;	//含\0含空格
 		}            
     }
 
@@ -248,29 +247,31 @@ int pcheckfiles(int cfd){
         lstat(filepath,&statbuf);
 
         if(ent->d_name[0] != '.' && !S_ISDIR(statbuf.st_mode)){
-			// cnt++;
 			strcat(namebuf,ent->d_name);
-			strcat(namebuf," ");
+			strcat(namebuf,"  ");
 			i++;
 			len += strlen(ent->d_name) + 1;	//含\0含空格
 
 			if(i == cnt || len >= 900){
-				if(cfd > 0)
-					dprintf(cfd,"server:@. %s\n",namebuf);
-				else
-					printf("%s\n",namebuf);
-				//输出一遍之后 清空缓冲区
+				if(i == cnt){	//最后一次输出					
+					if(cfd > 0)
+						dprintf(cfd,"server:@. %s[over]\n\n",namebuf);
+					else
+						printf("%s[over]\n\n",namebuf);	
+					//进行最后一次输出之后退出
+					break;
+				}else{	//不是最后一次，但len>=900，进行一次输出
+					if(cfd > 0)
+						dprintf(cfd,"server:@. %s\n",namebuf);
+					else
+						printf("%s\n",namebuf);
+				}				
+				//输出一次之后 清空缓冲区
 				memset(namebuf,0,1000);
 			}
-			
-			if(i == cnt) break;
+			//如果既不是最后一次，也没有满足len>=900，就继续将d_name连缀至namebuf			
 		}            
     }
-
-	if(cfd > 0)
-		dprintf(cfd,"server:@. [over]\n\n");
-	else
-		printf("[over]\n\n");
 	
     closedir(dir);
     dir = NULL;

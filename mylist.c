@@ -58,7 +58,7 @@ char* list_names(int cnt,char* names){
 		//只对list当中前cnt个操作，在操作期间通过append()方式新增的用户，不计入其中
 		if(i<cnt){
 			strcat(names,pnode->username);
-			strcat(names," ");
+			strcat(names,"  ");
 			i++;
 		}
     }

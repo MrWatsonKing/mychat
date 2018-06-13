@@ -207,7 +207,6 @@ int pcheckon(int sfd){
 
     int cnt = 0;
 	char sizebuf[64] = {0};
-    char msgbuf[1000] = {0};
 
     ssize_t n = 0;
     if((n = read(sfd,sizebuf,64)) <= 0){
@@ -222,6 +221,7 @@ int pcheckon(int sfd){
 	if(cnt == 0)
 		return 0;	
 		
+    char msgbuf[1000] = {0};
     while(1){
         if((n = read(sfd,msgbuf,1000)) <= 0){
 			perror("read error");
@@ -238,8 +238,6 @@ int pcheckon(int sfd){
 }
 
 int pcheckfiles(int sfd){
-
-	printf("\n");
 
 	ssize_t n = 0;
 	char verify[256] = {0};	
