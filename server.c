@@ -13,6 +13,7 @@ void phelp(void){
 }
 
 void* pcontrol(void* null){
+	//服务器运行界面的控制命令
 	char cmd[32] = {0};
 	while(1){
 		fgets(cmd,32,stdin); 
@@ -51,7 +52,7 @@ void* pnewthread(void* pcfd){
         ssize_t n = 0;
         if((n = read(cfd,cmd,32)) < 0){
             perror("read error");
-			//如果读不到command,就会发出退出命令
+			//如果读不到command,表示客户连接断线，将从list删除客户，并跳出循环结束本服务线程
             list_exit(cfd);
 			break;
         }

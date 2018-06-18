@@ -22,7 +22,7 @@ int main(int argc,char** argv){
 	if(db_open(dbname,pdb) == -1)
 		return -1;
 
-	//负责服务器控制的线程 在该线程中输入:help\n，即可查看服务器控制命令提示
+	//服务器运行界面控制命令
 	pthread_t tid0;
 	int ret = pthread_create(&tid0,0,pcontrol,NULL);
 	if(ret != 0){
