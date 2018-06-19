@@ -3,14 +3,16 @@ char cmd[32] = {0};
 int logstatus = 0;
 
 int main(int argc,char** argv){
-/*	
+#if 1	
 	if(argc != 2){
 		printf("Usage: clnt <ip>\n");
 		return -1;
 	}
 	int sfd = pconnect(argv[1]);
-*/
+#else
 	int sfd = pconnect("127.0.0.1");
+#endif
+
 	if(sfd == -1){
 		printf("pconnect fails\n");
 		return -1;
