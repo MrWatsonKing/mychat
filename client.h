@@ -11,7 +11,6 @@
 #include <sys/stat.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
-#include <sqlite3.h>
 #include <time.h>
 #include <fcntl.h>
 typedef struct sockaddr_in SA4;
