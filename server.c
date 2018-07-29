@@ -77,6 +77,7 @@ void* pnewthread(void* pcfd){
 			break;
 		}           
 	}
+	close(cfd);
 	printf("client thread cfd=%d exited.\ttotal threads: %d\n",cfd,nthreads);
 	return (void*)0;	
 }

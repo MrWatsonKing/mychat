@@ -111,7 +111,8 @@ int main(int argc,char** argv){
             if(psendcmd(sfd) == -1){
                 printf("\n");
                 continue;
-            }            
+            }
+            close(sfd);            
             exit(0);
         }else{
             printf("command is not known,please reinput.\n\n");
