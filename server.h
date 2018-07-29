@@ -11,7 +11,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <pthread.h>
-#include <sqlite3.h>
+#include "sqlite3.h"
 #include <dirent.h>
 
 enum{SQL_ERROR = -1,SQL_NONE,SQL_FOUND};
