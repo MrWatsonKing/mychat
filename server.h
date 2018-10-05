@@ -13,6 +13,8 @@
 #include <pthread.h>
 #include <sqlite3.h>
 #include <dirent.h>
+#include <sys/epoll.h>
+#include <fcntl.h>
 
 enum{SQL_ERROR = -1,SQL_NONE,SQL_FOUND};
 typedef struct sockaddr_in SA4;
@@ -51,7 +53,8 @@ int ptalk_transfer(int cfd,char* myname);
 void pgroupmsg(int mycfd,char* msg,char* myname);
 void pfile_upload(int cfd,char* filepath);
 void pfile_download(int cfd,char* filepath);
-int plisten(int port,int backlog);
+int pbind(int port);
+void setnonblock(int sfd);
 
 int list_init();
 int list_count();

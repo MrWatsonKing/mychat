@@ -621,31 +621,42 @@ void pfile_download(int cfd,char* filepath){
 
 }
 
-int plisten(int port,int backlog){
+int pbind(int port){
 	
 	SA4 serv;
 	serv.sin_family = AF_INET;
 	serv.sin_port = htons(port);
 	serv.sin_addr.s_addr = htonl(INADDR_ANY);
 
+	//创建套接字
 	int sfd = socket(AF_INET,SOCK_STREAM,0);
 	if(sfd == -1){
 		perror("socket");
 		return -1;
 	}
 
+	//绑定到服务地址和端口
 	int b = bind(sfd,(SA*)&serv,sizeof(serv));
 	if(b == -1){
 		perror("bind");
-		return -1;
-	}
-
-	int l = listen(sfd,backlog);
-	if(l == -1){
-		perror("listen");
 		return -1;
 	}
 	
 	return sfd;
 }
 
+void setnonblock(int sfd)
+{
+    int flags=0;
+    if((flags = fcntl(sfd,F_GETFL))<0){
+        perror("fcntl");
+        exit(1);
+    }
+
+    flags = flags|O_NONBLOCK;
+
+    if(fcntl(sfd,F_SETFL,flags)<0){
+        perror("fcntl");
+        exit(1);
+    }
+}
