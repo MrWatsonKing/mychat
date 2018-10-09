@@ -9,6 +9,7 @@ int nthreads = 0;
 int PORT = 8080;
 int BACKLOG = 20;
 int MAX_THRD_NUM = 5000;
+int sfd = 0;
 int efd = 0;
 threadpool_t* pool;
 pthread_mutex_t mtx = PTHREAD_MUTEX_INITIALIZER;
@@ -29,7 +30,7 @@ int main(int argc,char** argv){
 		return -1;	
 	
 	//创建并绑定套接字到服务地址和端口
-	int sfd = pbind(PORT);
+	sfd = pbind(PORT);
 	if(sfd == -1){
 		printf("pbind failed.\n");
 		return -1;
@@ -46,9 +47,12 @@ int main(int argc,char** argv){
 
 	//注册epoll事件
 	struct epoll_event ev,evq[BACKLOG];	
-	ev.events = EPOLLIN|EPOLLOUT;
+	ev.events = EPOLLIN|EPOLLERR|EPOLLET;
 	ev.data.fd = sfd;	
-	epoll_ctl(efd,EPOLL_CTL_ADD,sfd,&ev);
+	if(epoll_ctl(efd,EPOLL_CTL_ADD,sfd,&ev) == -1){
+		perror("epoll_ctl_add");
+		return -1;
+	}
 
 	//创建线程池
 	//注意：一个线程占用内存较多 所以一个进程所能够支持的最大的线程数量 是有限制的。
@@ -85,11 +89,14 @@ int main(int argc,char** argv){
 					perror("accept");
 					return -1;
 				}
+				// setnonblock(cfd); //此处不能设置nonblock 因为这样读不到消息
+
 				//将新的连接套接字 注册到epoll对象中
 				ev.data.fd = cfd;
-				ev.events = EPOLLIN|EPOLLET; //边缘触发 读操作
-				epoll_ctl(efd,EPOLL_CTL_ADD,cfd,&ev);
+				if(epoll_ctl(efd,EPOLL_CTL_ADD,cfd,&ev) == -1)
+					perror("epoll_ctl_add"); //只报错 不退出				
 
+				//将新连接的套接子附加到用户链表中
 				if(!list_append(cfd)){
 					pthread_mutex_lock(&mtx);
 					nclients++;
@@ -131,9 +138,20 @@ int main(int argc,char** argv){
 					threadpool_add_task(pool,pcheckfiles,(void*)cfd);
 				else if(!strcmp(cmd,"quit\n"))
 					threadpool_add_task(pool,pquit,(void*)cfd);
-
-			}else if(evq[i].events & EPOLLOUT){ //处理写消息
-				printf("EPOLLOUT: ready to write to client:\n");
+			
+			}else if(evq[i].events & EPOLLERR){ //处理套接子异常
+				//将出现错误的套接字 从epoll对象中删除
+				int cfd = evq[i].data.fd;
+				
+				if(epoll_ctl(efd,EPOLL_CTL_DEL,cfd,NULL) == -1)
+					perror("epoll_ctl_del");	//只报错 不退出
+				
+				close(cfd); //注意：epoll_ctl只能操作处于open状态的fd 不论是add还是del 都是如此。
+				pthread_mutex_lock(&mtx);
+				nclients--;
+				pthread_mutex_unlock(&mtx);
+				printf("client cfd=%d closed.\ttotal clients: %d\n",cfd,nclients);
+				
 			}
 			//其他类型暂不接收 也不处理
 		}

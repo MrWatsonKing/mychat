@@ -19,7 +19,7 @@ int db_open(){
 	int rc = sqlite3_exec(pdb,sql,NULL,NULL,&zerrmsg);
 	if(rc != SQLITE_OK){
 		sqlite3_close(pdb);
-		printf("sql: %s\n",zerrmsg);
+		// printf("sql:%s\n",zerrmsg);
 		sqlite3_free(zerrmsg);
 		return 0;//数据表已经存在而导致键表不成功的情况，应当不妨碍程序的继续运行
 	}

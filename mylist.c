@@ -12,7 +12,7 @@ int list_init(){
 	users.head.pnext = &users.tail;
 	users.tail.pprev = &users.head;
 
-	printf("list_init successful.\n");
+	printf("client list created.\n");
 	return 0;
 }
 
@@ -297,7 +297,8 @@ int list_destroy(){
 	pthread_rwlock_unlock(&list_rwlock);
 	//销毁读写锁
 	pthread_rwlock_destroy(&list_rwlock);
-
+	
+	printf("client list destroyed.\n");
 	return 0;
 }
 

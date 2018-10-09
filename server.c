@@ -5,6 +5,7 @@ extern int nthreads;
 extern int nclients;
 extern list users;
 extern sqlite3* pdb;
+extern int sfd;
 extern int efd; 
 extern threadpool_t* pool;
 extern pthread_mutex_t mtx;
@@ -39,53 +40,16 @@ void* pcontrol(void* null){
 			pcheckfiles(0);
 		}				
 		else if(!strcmp(cmd,":exit\n")){
-			list_destroy();	
-			threadpool_destroy(pool);	
+			close(sfd); //关闭监听套接字
+			close(efd); //关闭epoll对象
+
+			threadpool_destroy(pool);
 			pthread_mutex_destroy(&mtx);
+			list_destroy();
+			
 			exit(0);
 		}							
 	}
-}
-
-//以前一个客户一个线程 下面是客户线程的主逻辑处理函数
-void* pnewthread(void* pcfd){
-
-	int cfd = *(int*)pcfd;	
-
-	while(1){
-        //get commands:
-        char cmd[32]={0};
-        ssize_t n = 0;
-        if((n = read(cfd,cmd,32)) < 0){
-            perror("read error");
-			//如果读不到command,表示客户连接断线，将从list删除客户，并跳出循环结束本服务线程
-            list_exit(cfd);
-			break;
-        }
-        cmd[n] = '\0';
-        // printf("%s",cmd);
-
-        //execute commands:
-        if(!strcmp(cmd,"login\n"))
-            plogin(cfd); 
-		else if(!strcmp(cmd,"logout\n"))
-            plogout(cfd);
-        else if(!strcmp(cmd,"register\n"))
-            pregister(cfd);
-        else if(!strcmp(cmd,"online\n"))
-            pcheckon(cfd);
-        else if(!strcmp(cmd,"talk\n"))
-            ptalk_transfer(cfd);
-		else if(!strcmp(cmd,"shares\n"))
-			pcheckfiles(cfd);
-        else if(!strcmp(cmd,"quit\n")){
-			list_exit(cfd);
-			break;
-		}           
-	}
-	close(cfd);
-	printf("client thread cfd=%d exited.\ttotal threads: %d\n",cfd,nthreads);
-	return (void*)0;	
 }
 
 void* plogin(void* pcfd){
@@ -233,7 +197,7 @@ void* pcheckfiles(void* pcfd){
 	sprintf(path,"%s%s",getcwd(cwd,128),"/shared_files");
 
 	if((dir = opendir(path)) == NULL){
-		perror("opendir error");
+	//	perror("opendir error");
 		if(cfd > 0)
 			dprintf(cfd,"server:@. [verify]: NO.\n");
 		return (void*)-1;
@@ -628,20 +592,20 @@ void pfile_download(int cfd,char* filepath){
 
 void* pquit(void* pcfd){
 	int cfd = (int)pcfd;
-
 	list_exit(cfd);
-	close(cfd);
 
-	struct epoll_event ev;
-	ev.data.fd = cfd;
-	ev.events = EPOLLOUT;
-	epoll_ctl(efd,EPOLL_CTL_DEL,cfd,&ev);
-
+	
+	if(epoll_ctl(efd,EPOLL_CTL_DEL,cfd,NULL) == -1)
+		perror("epoll_ctl_del");
+	
+	close(cfd);	//注意：epoll_ctl只能操作处于open状态的fd 不论是add还是del 都是如此。
 	pthread_mutex_lock(&mtx);
 	nclients--;
 	pthread_mutex_unlock(&mtx);
-
 	printf("client cfd=%d exited.\ttotal clients: %d\n",cfd,nclients);
+	
+	
+	return (void*)0;
 }
 
 int pbind(int port){
