@@ -8,8 +8,9 @@ int nclients = 0;
 int nthreads = 0;
 int PORT = 8080;
 int BACKLOG = 20;
+int MAX_THRD_NUM = 5000;
 int efd = 0;
-threadpool_t* thpool;
+threadpool_t* pool;
 pthread_mutex_t mtx = PTHREAD_MUTEX_INITIALIZER;
 
 int main(int argc,char** argv){
@@ -51,8 +52,10 @@ int main(int argc,char** argv){
 
 	//创建线程池
 	//注意：一个线程占用内存较多 所以一个进程所能够支持的最大的线程数量 是有限制的。
-	thpool = threadpool_create(10,1000,BACKLOG);
-	if(thpool == NULL) return -1;
+	//设置setstacksize = 1M. 这样5G内存可以容纳的最大线程数 就可能达到5000
+	//本机安装的是64位操作系统 理论上是可以使用超过5G内存空间的
+	pool = threadpool_create(10,MAX_THRD_NUM,BACKLOG);
+	if(pool == NULL) return -1;
 
 	//开始监听来自客户端的连接
 	int l = listen(sfd,BACKLOG);
@@ -115,19 +118,19 @@ int main(int argc,char** argv){
 				//注意：if判断结束的时候 局部变量cfd会被销毁 
 				//所以不可以用指针传递的方式传参 只能用值传递的方式传入cfd。
 				if(!strcmp(cmd,"login\n"))
-					threadpool_add_task(thpool,plogin,(void*)cfd);
+					threadpool_add_task(pool,plogin,(void*)cfd);
 				else if(!strcmp(cmd,"logout\n"))
-					threadpool_add_task(thpool,plogout,(void*)cfd);
+					threadpool_add_task(pool,plogout,(void*)cfd);
 				else if(!strcmp(cmd,"register\n"))
-					threadpool_add_task(thpool,pregister,(void*)cfd);
+					threadpool_add_task(pool,pregister,(void*)cfd);
 				else if(!strcmp(cmd,"online\n"))
-					threadpool_add_task(thpool,pcheckon,(void*)cfd);
+					threadpool_add_task(pool,pcheckon,(void*)cfd);
 				else if(!strcmp(cmd,"talk\n"))
-					threadpool_add_task(thpool,ptalk_transfer,(void*)cfd);
+					threadpool_add_task(pool,ptalk_transfer,(void*)cfd);
 				else if(!strcmp(cmd,"shares\n"))
-					threadpool_add_task(thpool,pcheckfiles,(void*)cfd);
+					threadpool_add_task(pool,pcheckfiles,(void*)cfd);
 				else if(!strcmp(cmd,"quit\n"))
-					threadpool_add_task(thpool,pquit,(void*)cfd);
+					threadpool_add_task(pool,pquit,(void*)cfd);
 
 			}else if(evq[i].events & EPOLLOUT){ //处理写消息
 				printf("EPOLLOUT: ready to write to client:\n");

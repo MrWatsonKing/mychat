@@ -5,6 +5,8 @@
 #define MIN_WAIT_TASK_NUM 10
 #define DEFAULT_THREAD_NUM 10
 
+//注意：以下部分代码 参考自互联网 并由本人进行多处补充和错误修正。感谢原创作者。
+
 /*创建线程池*/
 threadpool_t* threadpool_create(int min_thr_num, int max_thr_num, int queue_max_size){    
    int i;
@@ -17,19 +19,22 @@ threadpool_t* threadpool_create(int min_thr_num, int max_thr_num, int queue_max_
             printf("malloc threadpool failed; \n");
             break;   
         }
-        /*信息初始化*/
+        //线程统计数据
         pool->min_thr_num = min_thr_num;
         pool->max_thr_num = max_thr_num;
         pool->busy_thr_num = 0;
         pool->live_thr_num = min_thr_num;
         pool->wait_exit_thr_num = 0;
+        //任务队列数据
         pool->queue_front = 0;
         pool->queue_rear = 0;
         pool->queue_size = 0;
         pool->queue_max_size = queue_max_size;
+        //线程池关闭状态
         pool->shutdown = false;
-
-        /* 根据最大线程数，给工作线程数组开空间，清0 */
+        
+        //注意 线程数组的元素是线程的tid，本质是存储新创建线程首地址的指针
+        //所以线程数组 实际上是一个tid数组 也是一个指针数组 只是用来存tid
         pool->threads = (pthread_t *)malloc(sizeof(pthread_t)*max_thr_num);
         if (pool->threads == NULL){
             printf("malloc threads failed;\n");
@@ -37,7 +42,6 @@ threadpool_t* threadpool_create(int min_thr_num, int max_thr_num, int queue_max_
         }
         memset(pool->threads, 0, sizeof(pthread_t)*max_thr_num);
 
-        /* 队列开空间 */
         pool->task_queue = 
             (threadpool_task_t *)malloc(sizeof(threadpool_task_t)*queue_max_size);
 
@@ -56,16 +60,29 @@ threadpool_t* threadpool_create(int min_thr_num, int max_thr_num, int queue_max_
             break;
         }
 
+        //创建线程属性对象 设置线程栈内存大小的默认最小值 单位是byte
+        //理论上这个最小值越小，一个进程内能够创建的线程数量就越多
+        pthread_attr_t attr = {0};
+        pthread_attr_init(&attr);
+        pthread_attr_setstacksize(&attr,1024*1024); //1024K = 1M
+        //通过ulimit -s got default stacksize = 8192K = 8M
+
         /* 启动min_thr_num个工作线程 */
         for (i=0; i<min_thr_num; i++){
-            /* pool指向当前线程池  threadpool_thread函数在后面讲解 */
-            pthread_create(&(pool->threads[i]), NULL, threadpool_thread, (void *)pool);
+            //第一个参数是线程池数组中各个元素线程内存的地址
+            pthread_create(&(pool->threads[i]), &attr, threadpool_thread, (void *)pool);
             // printf("created thread 0x%x... \n", (unsigned int)pool->threads[i]);
         }
+
         /* 管理者线程 admin_thread函数在后面讲解 */
         pthread_create(&(pool->admin_tid), NULL, admin_thread, (void *)pool);
         printf("thread pool created.\n");
-        return pool;
+        return pool; //返回了一个局部指针 但因为指针所指向的内存是在堆上 所以局部指针销毁了 其内存还在
+        //不能通过返回数组名的方式 来返回局部数组
+        //有两种方案可以保存局部创建的数组 两种方法 都只会创建一次数组
+        //第一 把数组创建在堆上 则返回数组名指针时 数组内存不会因为栈的销毁而释放
+        //第二 从函数外部传入一个指针 用于保存局部创建在栈上的数组 则函数返回时 外部指针代表的数组不会销毁
+
    } while(0);
 
    /* 释放pool的空间 */
@@ -191,11 +208,11 @@ void* admin_thread(void *threadpool){
       int busy_thr_num = pool->busy_thr_num;           /*忙线程数*/  
       pthread_mutex_unlock(&(pool->thread_counter));
 
-      printf("threads: busy live %d %d\n", busy_thr_num, live_thr_num);
+    //   printf("threads: busy live %d %d\n", busy_thr_num, live_thr_num);
       /*创建新线程 实际任务数量大于 最小正在等待的任务数量，存活线程数小于最大线程数*/
       if (queue_size >= MIN_WAIT_TASK_NUM && live_thr_num <= pool->max_thr_num)
       {
-         printf("admin add -----------\n");
+        //  printf("admin add -----------\n");
          pthread_mutex_lock(&(pool->lock));
          int add=0;
 
@@ -208,7 +225,7 @@ void* admin_thread(void *threadpool){
               pthread_create(&(pool->threads[i]), NULL, threadpool_thread, (void *)pool);
               add++;
               pool->live_thr_num++;
-              printf("new thread -----------\n");
+            //   printf("new thread -----------\n");
            }
          }
 
@@ -228,7 +245,7 @@ void* admin_thread(void *threadpool){
         {
            //通知正在处于空闲的线程，自杀
            pthread_cond_signal(&(pool->queue_not_empty));
-           printf("admin clear -----------\n");
+        //    printf("admin clear -----------\n");
         }
       }
 

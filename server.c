@@ -6,7 +6,7 @@ extern int nclients;
 extern list users;
 extern sqlite3* pdb;
 extern int efd; 
-extern threadpool_t* thpool;
+extern threadpool_t* pool;
 extern pthread_mutex_t mtx;
 
 void phelp(void){
@@ -40,7 +40,7 @@ void* pcontrol(void* null){
 		}				
 		else if(!strcmp(cmd,":exit\n")){
 			list_destroy();	
-			threadpool_destroy(thpool);	
+			threadpool_destroy(pool);	
 			pthread_mutex_destroy(&mtx);
 			exit(0);
 		}							

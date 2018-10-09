@@ -1,6 +1,6 @@
 #include "server.h"
 
-/*任务*/
+/*一个方程 一个参数 构成一个任务*/
 typedef struct {
    void* (*function)(void*);
    void* arg;
@@ -13,7 +13,7 @@ typedef struct{
    pthread_cond_t  queue_not_full;       /* 条件变量，任务队列不为满 */
    pthread_cond_t  queue_not_empty;      /* 任务队列不为空 */
 
-   pthread_t *threads;                   /* 存放线程的tid,实际上就是管理了线 数组 */
+   pthread_t *threads;                   /* 存放线程的tid,实际上就是线程地址数组 */
    pthread_t admin_tid;                  /* 管理者线程tid */
    threadpool_task_t *task_queue;        /* 任务队列 */
 
