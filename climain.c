@@ -3,7 +3,7 @@ char cmd[32] = {0};
 int logstatus = 0;
 
 int main(int argc,char** argv){
-#if 1	
+#if 0	
 	if(argc != 2){
 		printf("Usage: clnt <ip>\n");
 		return -1;

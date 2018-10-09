@@ -22,7 +22,6 @@ typedef struct sockaddr SA;
 
 typedef struct node{
 	int tcfd;
-	pthread_t tid;
 	char username[32];	
 	int logstatus;
 	int chatstatus;
@@ -44,12 +43,13 @@ typedef struct listshow{
 void phelp(void);
 void* pcontrol(void*);
 void* pnewthread(void* pcfd);
-int plogin(int cfd,char* myname);
-int plogout(int cfd,char* myname);
-int pregister(int cfd);
-int pcheckon(int cfd);
-int pcheckfiles(int cfd);
-int ptalk_transfer(int cfd,char* myname);
+void* plogin(void* pcfd);
+void* plogout(void* pcfd);
+void* pregister(void* pcfd);
+void* pcheckon(void* pcfd);
+void* pcheckfiles(void* pcfd);
+void* ptalk_transfer(void* pcfd);
+void* pquit(void* pcfd);
 void pgroupmsg(int mycfd,char* msg,char* myname);
 void pfile_upload(int cfd,char* filepath);
 void pfile_download(int cfd,char* filepath);
@@ -62,7 +62,7 @@ char* list_names(int cnt,char* names);
 int list_getcfd(const char* username);
 int* list_getcfdarr(int** pcfdarr,int* pcnt);
 char* list_getname(int cfd);
-int list_append(int cfd,pthread_t tid);
+int list_append(int cfd);
 int list_login(int cfd,const char* username);
 int list_logout(int cfd);
 int list_logstatus(int cfd);

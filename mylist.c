@@ -117,7 +117,7 @@ char* list_getname(int cfd){
 	return NULL;
 }
 
-int list_append(int cfd,pthread_t tid){
+int list_append(int cfd){
 	//确保服务器退出注销list的时候，不存在已经分配但没有加入链表的内存
 	pthread_rwlock_wrlock(&list_rwlock);
 	//接入客户套接字，即开始将客户添加到链表，需要分配内存
@@ -129,7 +129,6 @@ int list_append(int cfd,pthread_t tid){
 	}
 	memset(pnode,0,sizeof(node));	
 	pnode->tcfd = cfd;
-	pnode->tid = tid;	
 	users.tail.pprev->pnext = pnode;
 	pnode->pprev = users.tail.pprev;
 	pnode->pnext = &users.tail;
@@ -155,7 +154,7 @@ int list_login(int cfd,const char* username){
 		}
 	
 	pthread_rwlock_unlock(&list_rwlock);
-	printf("user thread cfd=%d does not exist.\n",cfd);
+	printf("list_login: user cfd=%d does not exist.\n",cfd);
 	return -1;
 }
 
@@ -172,7 +171,7 @@ int list_logout(int cfd){
 			return 0;
 		}
 	pthread_rwlock_unlock(&list_rwlock);
-	printf("user thread cfd=%d does not exist.\n",cfd);
+	printf("list_logout: user cfd=%d does not exist.\n",cfd);
 	return -1;
 }
 
@@ -187,7 +186,7 @@ int list_logstatus(int cfd){
 		}
 	
 	pthread_rwlock_unlock(&list_rwlock);
-	printf("user thread cfd=%d does not exist.\n",cfd);
+	printf("list_logstatus: user cfd=%d does not exist.\n",cfd);
 	return -1;
 }
 
@@ -203,7 +202,7 @@ int list_chatin(int cfd){
 			return 0;
 		}
 	pthread_rwlock_unlock(&list_rwlock);
-	printf("user thread cfd=%d does not exist.\n",cfd);
+	printf("list_chatin: user cfd=%d does not exist.\n",cfd);
 	return -1;
 }
 
@@ -219,7 +218,7 @@ int list_chatout(int cfd){
 			return 0;
 		}
 	pthread_rwlock_unlock(&list_rwlock);
-	printf("user thread cfd=%d does not exist.\n",cfd);
+	printf("list_chatout: user cfd=%d does not exist.\n",cfd);
 	return -1;
 }
 
@@ -233,7 +232,7 @@ int list_chatstatus(int cfd){
 			return pnode->chatstatus;
 		}
 	pthread_rwlock_unlock(&list_rwlock);
-	printf("user thread cfd=%d does not exist.\n",cfd);
+	printf("list_chatstatus: user cfd=%d does not exist.\n",cfd);
 	return -1;
 }
 
@@ -255,7 +254,7 @@ int list_exit(int cfd){
 		}
 	}
 	pthread_rwlock_unlock(&list_rwlock);
-	printf("user cfd=%d does not exist!\n",cfd);
+	printf("list_exit: user cfd=%d does not exist!\n",cfd);
 	return -1;
 }
 
@@ -265,11 +264,7 @@ int list_delete(int cfd){
 	node* pnode = NULL;
 	pthread_rwlock_wrlock(&list_rwlock);
 	for(pnode = users.head.pnext; pnode != &users.tail; pnode = pnode->pnext){
-		if(pnode->tcfd == cfd){
-			if(!pthread_cancel(pnode->tid)){
-				nthreads--;
-				printf("client thread cfd=%d canceled.\ttotal threads: %d\n",cfd,nthreads);
-			}				
+		if(pnode->tcfd == cfd){		
 			pnode->pprev->pnext = pnode->pnext;
 			pnode->pnext->pprev = pnode->pprev;
 			free(pnode);
@@ -280,7 +275,7 @@ int list_delete(int cfd){
 		}
 	}
 	pthread_rwlock_unlock(&list_rwlock);
-	printf("user cfd=%d does not exist!\n",cfd);
+	printf("list_delete: user cfd=%d does not exist!\n",cfd);
 	return -1;
 }
 

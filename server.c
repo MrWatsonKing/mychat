@@ -1,8 +1,13 @@
 #include "server.h" ////////////////// server.c
+#include "threadpool.h"
 
 extern int nthreads;
+extern int nclients;
 extern list users;
 extern sqlite3* pdb;
+extern int efd; 
+extern threadpool_t* thpool;
+extern pthread_mutex_t mtx;
 
 void phelp(void){
 	printf("commands:\n"
@@ -34,21 +39,22 @@ void* pcontrol(void* null){
 			pcheckfiles(0);
 		}				
 		else if(!strcmp(cmd,":exit\n")){
-			list_destroy();			
+			list_destroy();	
+			threadpool_destroy(thpool);	
+			pthread_mutex_destroy(&mtx);
 			exit(0);
 		}							
 	}
 }
 
+//以前一个客户一个线程 下面是客户线程的主逻辑处理函数
 void* pnewthread(void* pcfd){
-	
-	int cfd = *(int*)pcfd;
-	//myname必须是一个线程内的局部变量，因为不同的线程，对应不同的myname
-	char myname[32] = {0};	
-	
+
+	int cfd = *(int*)pcfd;	
+
 	while(1){
         //get commands:
-        char cmd[32] = {0};
+        char cmd[32]={0};
         ssize_t n = 0;
         if((n = read(cfd,cmd,32)) < 0){
             perror("read error");
@@ -61,15 +67,15 @@ void* pnewthread(void* pcfd){
 
         //execute commands:
         if(!strcmp(cmd,"login\n"))
-            plogin(cfd,myname); 
+            plogin(cfd); 
 		else if(!strcmp(cmd,"logout\n"))
-            plogout(cfd,myname);
+            plogout(cfd);
         else if(!strcmp(cmd,"register\n"))
             pregister(cfd);
         else if(!strcmp(cmd,"online\n"))
             pcheckon(cfd);
         else if(!strcmp(cmd,"talk\n"))
-            ptalk_transfer(cfd,myname);
+            ptalk_transfer(cfd);
 		else if(!strcmp(cmd,"shares\n"))
 			pcheckfiles(cfd);
         else if(!strcmp(cmd,"quit\n")){
@@ -82,8 +88,8 @@ void* pnewthread(void* pcfd){
 	return (void*)0;	
 }
 
-int plogin(int cfd,char* myname){
-	
+void* plogin(void* pcfd){
+	int cfd = (int)pcfd;
 	char buf[100] = {0};
     int tcfd = 0;
 	char username[32] = {0},password[32] = {0};
@@ -91,7 +97,7 @@ int plogin(int cfd,char* myname){
 	ssize_t n = 0;
 	if((n = read(cfd,buf,100)) < 0){
 		printf("failed to read login message from client.\n");
-		return -1;
+		return (void*)-1;
 	}
 	buf[n] = '\0';
 	sscanf(buf,"%s %s\n",username,password);
@@ -117,9 +123,8 @@ int plogin(int cfd,char* myname){
 				break;
 			}			
 			if(!list_login(cfd,username)){
-				strcpy(myname,username);		
 				dprintf(cfd,"login successful!\n");
-				return 0;
+				return (void*)0;
 			}
 			dprintf(cfd,"login failure.\n");
 			break;
@@ -129,35 +134,34 @@ int plogin(int cfd,char* myname){
 		default:
 			break;			
 	}
-	return -1;
+	return (void*)-1;
 }
 
-int plogout(int cfd,char* myname){
-	
+void* plogout(void* pcfd){
+	int cfd = (int)pcfd;
 	if(!list_logout(cfd)){
-		memset(myname,0,32);
 		dprintf(cfd,"logout successful!\n");
-		return 0;
+		return (void*)0;
 	}
 	dprintf(cfd,"logout failure!\n");
-	return -1;
+	return (void*)-1;
 }
 
-int pregister(int cfd){
-	
+void* pregister(void* pcfd){
+	int cfd = (int)pcfd;
 	char buf[100] = {0};
 	char username[32] = {0},password[32] = {0};
 
 	ssize_t n = 0;
 	if((n = read(cfd,buf,100)) < 0){
 		printf("failed to read register message from client.\n");
-		return -1;
+		return (void*)-1;
 	}
 	buf[n] = '\0';
 	sscanf(buf,"%s %s\n",username,password);
 	if(!strcmp(username,"register") && !strcmp(password,"failed")){
 //		printf("password inputs differ,client may retry.\n");
-		return -1;
+		return (void*)-1;
 	}
 
 	switch(db_check(username,password)){
@@ -178,11 +182,11 @@ int pregister(int cfd){
 		default:
 			break;			
 	}
-	return 0;
+	return (void*)0;
 }
 
-int pcheckon(int cfd){
-        
+void* pcheckon(void* pcfd){
+    int cfd = (int)pcfd;
     int cnt = list_count("chaters");
 	//临近的代码区间内，尽量将通信语句一次性发送，因为发送和接收的次数实际上并不是匹配的
 	//连续快速的发送，可能会被接收端视为同一次发送，从而不能正常解析单词发送的通信语句
@@ -190,7 +194,7 @@ int pcheckon(int cfd){
 	    dprintf(cfd, "server:@. chaters online: %d\n",cnt);
     else{
 		dprintf(cfd, "server:@. chaters online: %d\n\n",cnt);
-		return 0; 
+		return (void*)0; 
 	}		   
     
     char names[32*cnt];
@@ -215,11 +219,11 @@ int pcheckon(int cfd){
 		sleep(0);
     }
     
-	return cnt;
+	return (void*)cnt;
 }
 
-int pcheckfiles(int cfd){
-
+void* pcheckfiles(void* pcfd){
+	int cfd = (int)pcfd;
 	DIR* dir = NULL;
 	struct dirent* ent = NULL;
 	struct stat statbuf = {0};
@@ -232,7 +236,7 @@ int pcheckfiles(int cfd){
 		perror("opendir error");
 		if(cfd > 0)
 			dprintf(cfd,"server:@. [verify]: NO.\n");
-		return -1;
+		return (void*)-1;
 	}
 	if(cfd > 0)
 		dprintf(cfd,"server:@. [verify]: OK.\n");
@@ -291,16 +295,16 @@ int pcheckfiles(int cfd){
     dir = NULL;
     ent = NULL;
 
-	return 0;
+	return (void*)0;
 }
 
-int ptalk_transfer(int cfd,char* myname){
-	
+void* ptalk_transfer(void* pcfd){
+	int cfd = (int)pcfd;
 	if(!list_chatin(cfd))
 		dprintf(cfd,"enter talkroom successful.\n");
 	else{
 		dprintf(cfd,"enter talkroom failure.\n");
-		return -1;
+		return (void*)-1;
 	}
 
 	char msg[1000] = {0};
@@ -327,7 +331,7 @@ int ptalk_transfer(int cfd,char* myname){
 		if(!strcmp(msg,"@. :exit\n")){
 			char exitmsg[100] = {0};
 			sprintf(exitmsg,"@. [msg]:left chatroom.\n");
-			pgroupmsg(cfd,exitmsg,myname);
+			pgroupmsg(cfd,exitmsg,list_getname(cfd));
 			list_chatout(cfd);			
 			break;
 		}
@@ -354,7 +358,7 @@ int ptalk_transfer(int cfd,char* myname){
 				pfile_download(cfd,filepath);
 			}
 			else 
-				pgroupmsg(cfd,msg,myname); //群发消息 包含@toname
+				pgroupmsg(cfd,msg,list_getname(cfd)); //群发消息 包含@toname
 		//单发消息 文件定向传送
 		}else{
 			//如果本次目标用户名同上次不一样 就重新设定在线状态
@@ -374,13 +378,14 @@ int ptalk_transfer(int cfd,char* myname){
 				online = 1;
 			}				
 			//验证通过之后进行消息转发	
-			dprintf(tcfd,"%s:%s",myname,msg); //包含@toname
+			dprintf(tcfd,"%s:%s",list_getname(cfd),msg); //包含@toname
 	//		printf("transfer realmsg len=%lu.\n",strlen(msg)-len-2);
 		}
 	}
 	//printf("ptalk_transfer exited.\n");
-	return 0;
+	return (void*)0;
 }
+
 void pgroupmsg(int mycfd,char* msg,char* myname){
 	
 	int clients = 0;
@@ -619,6 +624,24 @@ void pfile_download(int cfd,char* filepath){
 	psendfile = NULL;
 	printf("file size=%d sent successful.\n\n",size);
 
+}
+
+void* pquit(void* pcfd){
+	int cfd = (int)pcfd;
+
+	list_exit(cfd);
+	close(cfd);
+
+	struct epoll_event ev;
+	ev.data.fd = cfd;
+	ev.events = EPOLLOUT;
+	epoll_ctl(efd,EPOLL_CTL_DEL,cfd,&ev);
+
+	pthread_mutex_lock(&mtx);
+	nclients--;
+	pthread_mutex_unlock(&mtx);
+
+	printf("client cfd=%d exited.\ttotal clients: %d\n",cfd,nclients);
 }
 
 int pbind(int port){
