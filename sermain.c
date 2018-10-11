@@ -134,7 +134,7 @@ int main(int argc,char** argv){
 					threadpool_add_task(pool,pcheckon,(void*)cfd);
 				else if(!strcmp(cmd,"talk\n"))
 					threadpool_add_task(pool,ptalk_transfer,(void*)cfd);
-				else if(!strcmp(cmd,"shares\n"))
+				else if(!strcmp(cmd,"files\n"))
 					threadpool_add_task(pool,pcheckfiles,(void*)cfd);
 				else if(!strcmp(cmd,"quit\n"))
 					threadpool_add_task(pool,pquit,(void*)cfd);

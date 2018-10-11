@@ -16,7 +16,7 @@ void phelp(void){
            "\tlogout\t\tset logstatus off;\n"
            "\tregister\tregister user ID;\n"
            "\tonline\t\tcheck online userlist;\n"
-		   "\tshares\t\tcheck online filelist;\n"
+		   "\tfiles\t\tcheck online filelist;\n"
            "\ttalk\t\tenter talkroom;\n"
            "\tquit\t\tquit this client.\n\n"
            
@@ -26,7 +26,7 @@ void phelp(void){
            "\t\"<msg>\" to broatcast a public msg;\n"
            "\t\":exit\" to exit chatroom;\n"
 		   "\t\":online\" to check online userlist.\n"
-		   "\t\":shares\" to check online filelist.\n\n" 
+		   "\t\":files\" to check online filelist.\n\n" 
 
            "file sharing:\n"
            "\t\"@<name> :file $<filepath>\" to send a file privately;\n"
@@ -249,12 +249,15 @@ int pcheckfiles(int sfd){
 		printf("failed to get online filelist from server.\n\n");
 		return -1;
 	}
-	verify[n] = '\0';
-	if(strstr(verify,"[verify]: NO")){
+	verify[n] = '\0'; //无论文件夹是否存在 都不会输出第一个verify本身
+
+	//共享文件夹不存在 则退出
+	if(strstr(verify,"no shared files online.")){
 		printf("no shared files online.\n\n");
 		return -1;
 	}
 
+	//共享文件夹存在 无文件则退出 有文件则发文件
 	char listbuf[1000] = {0};
 	while(1){
 		if((n = read(sfd,listbuf,256)) <= 0){
@@ -265,7 +268,7 @@ int pcheckfiles(int sfd){
 		listbuf[n] = '\0';
 		printf("%s",listbuf+10);
 		
-		if(strstr(listbuf,"[over]"))
+		if(strstr(listbuf,"[over]") || strstr(listbuf,"no shared files online."))
 			break;
 	}
 
@@ -375,7 +378,7 @@ void* thread_send(void* psfd){
 			}
 
 			//验证文件命令合规性
-			if(strstr(msg,":file")){				
+			if(strstr(msg,":file ")){				
 				if(strlen(toname) == 1 && toname[0] == '.'){
 					printf("can not broadcast file by @.\n");
 					continue;
@@ -411,31 +414,31 @@ void* thread_send(void* psfd){
 				online = 1;
 				ncond = 0;
 			}
-			if(strstr(msg,":file"))
+			if(strstr(msg,":file "))
 				if(pfile_send(sfd,filepath,toname) == -1) continue;			
 			
 		//不带@<toname>,补加@. 
 		}else{
-			if(strstr(msg,":file")){ //不允许进行文件群发
+			if(strstr(msg,":file ")){ //不允许进行文件群发
 				printf("@toname should be designated.\n");
 				continue;
 			}
-			if(!strcmp(msg,":online\n")){
+			if(strstr(msg,":online\n")){
             	dprintf(sfd,"@. %s",msg);
             	continue;
        		}
-			if(!strcmp(msg,":shares\n")){ //不允许进行文件群发
+			if(strstr(msg,":files\n")){ 
 				dprintf(sfd,"@. %s",msg);
 				continue;
 			}
-			if(!strcmp(msg,":help\n")){ //不允许进行文件群发
+			if(strstr(msg,":help\n")){
 				phelp();
 				continue;
 			}
 
 			//@. :upload $<filepath> 上传文件至服务器
 			//@. :download $<filepath> 从服务器下载文件
-			if(strstr(msg,":upload") || strstr(msg,":download")){
+			if(strstr(msg,":upload ") || strstr(msg,":download ")){
 				if(!strstr(msg,"$")){
 					printf("$filepath should be designated.\n");
 					continue;
@@ -540,6 +543,7 @@ void* thread_recv(void* psfd){
         }
         //若对方确认接受文件,则设置ncond值
         else{
+			// printf("%s\n",realmsg);
             if(!strcmp(realmsg,"[verify]: OK.\n")){
                 ncond = 1;
                 pthread_cond_signal(&cond);

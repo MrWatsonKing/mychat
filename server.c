@@ -13,7 +13,7 @@ extern pthread_mutex_t mtx;
 void phelp(void){
 	printf("commands:\n"
 		   "\t:online\t\tcheck online userlist;\n"
-           "\t:shares\t\tcheck online filelist;\n"
+           "\t:files\t\tcheck online filelist;\n"
            "\t:exit\t\tterminate the server.\n\n"
            );  
 }
@@ -36,12 +36,14 @@ void* pcontrol(void* null){
 			}else
 				printf("\n");			
 		}
-		else if(!strcmp(cmd,":shares\n")){
-			pcheckfiles(0);
+		else if(!strcmp(cmd,":files\n")){
+			pcheckfiles(-1);
 		}				
 		else if(!strcmp(cmd,":exit\n")){
 			close(sfd); //关闭监听套接字
 			close(efd); //关闭epoll对象
+			//在linux下如果查看/proc/进程id/fd/，是能够看到这个fd的，
+			//所以在使用完epoll后，必须调用close()关闭，否则可能导致fd被耗尽
 
 			threadpool_destroy(pool);
 			pthread_mutex_destroy(&mtx);
@@ -186,6 +188,7 @@ void* pcheckon(void* pcfd){
 	return (void*)cnt;
 }
 
+//一个服务器函数 同时适用于客户端在command命令下和talk状态下的两种请求模式
 void* pcheckfiles(void* pcfd){
 	int cfd = (int)pcfd;
 	DIR* dir = NULL;
@@ -196,19 +199,26 @@ void* pcheckfiles(void* pcfd){
 	char cwd[128] = {0};
 	sprintf(path,"%s%s",getcwd(cwd,128),"/shared_files");
 
+	//验证文件夹是否能打开
 	if((dir = opendir(path)) == NULL){
 	//	perror("opendir error");
 		if(cfd > 0)
-			dprintf(cfd,"server:@. [verify]: NO.\n");
+			dprintf(cfd,"server:@. no shared files online.\n\n");
+		else
+			printf("no shared files online.\n\n");
+
 		return (void*)-1;
 	}
+
+	//文件夹存在的情况下 发个OK信号
 	if(cfd > 0)
 		dprintf(cfd,"server:@. [verify]: OK.\n");
 
-	long loc = telldir(dir);
-
+	//计算文件夹中文件的数量
 	int cnt = 0;
 	// int lensum = 0;
+	long loc = telldir(dir);
+
 	while((ent = readdir(dir)) != NULL){
         sprintf(filepath,"%s/%s",path,ent->d_name);
         lstat(filepath,&statbuf);
@@ -219,11 +229,22 @@ void* pcheckfiles(void* pcfd){
 		}            
     }
 
-	seekdir(dir,loc);
+	//如果数量等于0 发通知 并结束
+	if(cnt == 0){
+		if(cfd>0)
+			dprintf(cfd,"server:@. no shared files online.\n\n");
+		else
+			printf("no shared files online.\n\n");
+
+		return (void*)-1;
+	}
 
 	int i = 0;
 	int len = 0;
 	char namebuf[1000] = {0};
+
+	//循环依次发送文件名
+	seekdir(dir,loc);
 	while((ent = readdir(dir)) != NULL){
         sprintf(filepath,"%s/%s",path,ent->d_name);
         lstat(filepath,&statbuf);
@@ -284,15 +305,15 @@ void* ptalk_transfer(void* pcfd){
         //msg自带\n,尤其是文件内容,不能删掉
 		msg[n] = '\0';
         
-        if(!strcmp(msg,"@. :online\n")){
+        if(strstr(msg,"@. :online\n")){
             pcheckon(cfd);
             continue;
         }
-		if(!strcmp(msg,"@. :shares\n")){
+		if(strstr(msg,"@. :files\n")){
             pcheckfiles(cfd);
             continue;
         }          
-		if(!strcmp(msg,"@. :exit\n")){
+		if(strstr(msg,"@. :exit\n")){
 			char exitmsg[100] = {0};
 			sprintf(exitmsg,"@. [msg]:left chatroom.\n");
 			pgroupmsg(cfd,exitmsg,list_getname(cfd));
@@ -311,12 +332,12 @@ void* ptalk_transfer(void* pcfd){
 
 		//群发消息 文件上传下载
 		if(lento == 1 && toname[0]=='.') {
-			if(strstr(msg,":upload")){
+			if(strstr(msg,":upload ")){
 				sscanf(msg,"%*[^$]$%s",filepath);
 				strtok(filepath,"\n");
 				pfile_upload(cfd,filepath);
 			}
-			else if(strstr(msg,":download")){
+			else if(strstr(msg,":download ")){
 				sscanf(msg,"%*[^$]$%s",filepath);
 				strtok(filepath,"\n");
 				pfile_download(cfd,filepath);
@@ -409,13 +430,14 @@ void pfile_upload(int cfd,char* filepath){
     if(access(recvpath,R_OK|W_OK|X_OK) == -1){
         if(mkdir(recvpath,0777) == -1){
             dprintf(cfd,"server:@. [verify]: NO.\n");
-            perror("mkdir error");
+            perror(recvpath);
             return;
-        }else
-			printf("dir created OK:%s\n",recvpath);
+        }
+		printf("dir created OK:%s\n",recvpath);
     }	
     strcat(recvpath,filename);
 	dprintf(cfd,"server:@. [verify]: OK.\n");
+	// printf("sent out: server:@. [verify]: OK.\n");
 
 	//验证发送方文件是否打开成功
 	if((n = read(cfd,sizebuf,64)) < 0){

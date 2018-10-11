@@ -15,6 +15,7 @@
 #include <dirent.h>
 #include <sys/epoll.h>
 #include <fcntl.h>
+#include <stdbool.h>
 
 enum{SQL_ERROR = -1,SQL_NONE,SQL_FOUND};
 typedef struct sockaddr_in SA4;

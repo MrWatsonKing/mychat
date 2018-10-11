@@ -52,7 +52,7 @@ int main(int argc,char** argv){
             }
             plogin(sfd);
         }
-        else if(!strcmp(cmd,"shares\n")){
+        else if(!strcmp(cmd,"files\n")){
             if(logstatus == 0){
                 printf("please login first!\n\n");
                 continue;
