@@ -3,7 +3,36 @@ MyChat
 by: MrWatsonKing.
 ---
 upload date:20180528<br><br>
-Mychat, is a multi_people-online-interactive chatting system running on Unixes, which supports online logging in, registering, solo chatting, multi chatting, online name list viewing, solo file transfering, shared files uploading, shared files downloading, online file list viewing, local help viewing, etc. The project is totally designed and implemented by myself, which is my exercise project during my systematical study of C/C++.<br><br>
-Mychat，是一个运行在Unix类系统下，支持多人联网互动的聊天系统。支持多人同时在线登录、注册、单聊、群聊、查看在线人数、一对一传输文件、上传共享文件、下载共享文件、查看在线文件列表、查看本地帮助等。此项目完全由本人原创设计和实现。是本人系统学习C/C++期间的练习项目<br><br>
+  Mychat, is a multi_people-online-interactive chatting system running on Unixes, which supports online logging in, registering, solo chatting, multi chatting, online name list viewing, solo file transfering, shared files uploading, shared files downloading, online file list viewing, local help viewing, etc. The project is totally designed and implemented by myself, which is my exercise project during my systematical study of C/C++.<br><br>
+  Mychat，是一个运行在Unix类系统下，支持多人联网互动的聊天系统。支持多人同时在线登录、注册、单聊、群聊、查看在线人数、一对一传输文件、上传共享文件、下载共享文件、查看在线文件列表、查看本地帮助等。此项目完全由本人原创设计和实现。是本人系统学习C/C++期间的练习项目。<br><br>
+
+1.项目简介
+---
+1）使用人群和设计目标。<br>
+  Mychat 是一个运行在类Unix 系统下的在线聊天系统。目标使用人群为在Linux 和macOS 上编写代码的，处于同一个局域网内的软件开发小组，但也可在公网上架设服务器，供互联网上的各类用户使用。设计的目的是制作一款轻量、简单、可用的小团队聊天软件，让linux 系统上的开发者，通过熟悉、简单的终端命令模式，就可以更容易进行文字和文件交流。<br><br>
+2）用户界面和使用方法。<br>
+  因为目标用户是软件开发的专业人士，所以没有设计图形化用户界面，而是直接以bash 终端为界面。在bash 终端cd 到安装目录，输入srvr 可直接在本机启动服务器，输入clnt <ip>即可连接到指定ip 机器上运行的服务器。所有客户端之间通过服务器来进行消息和文件的交换，服务器不保存中转消息和文件，只保存共享文件。<br><br>
+  
+2.软件功能
+---
+1）注册、登录、登出、换机自动登录/登出。<br>
+  注册信息保存在服务器端的sqlite3 数据库中，登录/登出信息保存在服务器端实时维护的用户信息链表中，链表在用户操作过程中实时更新。<br><br>
+2）群聊、单聊。<br>
+  启动客户端，输入talk 命令后，默认进入群聊，通过@toname 的方式，指定单个对象进行单聊。因为设想中的用户群体是处在同一局域网内的小团队，或处于互联网不同网络的熟人圈，所以聊天消息默认群发。单聊模式不同于qq/微信群内的@功能，单聊消息只会被服务器定向发送给接收人，聊天室内其他所有人都不会收到，所以是完全的私密消息。在聊天过程中，可随时通过:exit 命令退出聊天环节。<br><br>
+3）客户端生成本地聊天记录、创建本地接收文件夹和文件。<br>
+  聊天记录按用户名和日期命名，不同日期的聊天记录分成不同的文件，方便查看。当天的聊天记录，采用追加方式写入，内容包含群聊和单聊以及成功的文件收发消息。收到的文件会存放在根据用户名新创建的接收文件夹中，如果收到同名文件，默认覆盖。<br><br>
+4）在单聊中一对一传输文件、群聊中上传/下载共享文件。<br>
+  单聊中，文件的收发是在各种消息同步机制控制下同步进行的，所以文件的收发都是有序的。但在群聊中，文件的收发不可能同时同步到所有的群聊用户，所以在群聊中共享文件，只能采取将共享文件上传至服务器，然后供其他人自由下载的方式进行。<br><br>
+5）查看在线人数、查看在线文件列表、查看本地帮助、释放资源退出程序等。<br>
+  客户登录以后，可以通过命令查看在线聊天的实时人数，查看存放在服务器的共享文件的文件名列表，从而获知当前聊天的人员状况和共享文件的资源信息，然后自主决定是否进入聊天或下载文件。客户端和服务器都支持通过:help 命令获取帮助信息，帮助信息介绍了软件的功能和操作命令。服务器本身设有一个控制线程，该线程中也支持查看在线人数、共享文件名列表，但只能查看，不能进行进一步的操作。客户端通过quit 命令，可释放资源退出程序；服务器通过控制线程输入:exit 命令，释放资源并关闭服务器。<br><br>
+  
+3.应用技术
+---
+1）技术简介。<br>
+  客户端和服务器均使用纯C 语言实现，基于Client/Server 框架，采用Tcp/Ip 协议，通过epoll 和threadpool 复用多路I/O 和多路线程，应用sqlite3 数据库，运行在Unix Bash 终端，具有良好的线程安全性和异常容错性。在局域网和公网测试，均能良好运行。<br><br>
+2）客户端多线程及其同步。<br>
+  客户端开设两个线程，分别用于消息的接收和发送，所以消息的接收和发送几乎是可以同时进行的，即在同一个终端界面中，任何时候都可以输入文字，而任何时候也可以输出文字。文件是一种特殊的消息。接收线程和发送线程之间，需要同步的地方，使用互斥锁、读写锁、条件变量、特殊消息等方式来同步。<br><br>
+3）服务器epoll/threadpool/setstacksize。<br>
+  服务器采用epoll 管理所有套接字消息，来决定是开启新的套接字，还是处理已有套接字收到的消息。对于活跃套接字的消息处理，将不同类型的消息划分为不同类型的任务，将各个任务加入任务队列，采用线程池来灵活调度和复用多线程。Epoll 的使用，提高了多路IO 的处理效率， threadpool 则避免了频繁的线程创建和销毁所带来的额外开销。同时，因为本程序处理的消息体量普遍较小，所以在线程池中创建新线程时，通过setstacksize 设置线程属性，将线程栈容量最小值从默认8M 设置为1M，大大减少了每一个独立线程所占的内存空间大小，从而提高了服务器的总并发量。<br><br>
 email: 1156522680@qq.com<br>
 
